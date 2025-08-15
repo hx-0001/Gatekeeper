@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>注册</title>
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        article {
+            width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <article>
+            <hgroup>
+                <h1>创建账户</h1>
+                <h2>使用您的员工ID注册</h2>
+            </hgroup>
+            <form method="post">
+                <label for="username">员工ID</label>
+                <input type="text" id="username" name="username" required pattern="^([a-zA-Z]\d{5}|\d{5})$" title="必须是5位数字或1个字母后跟5位数字。">
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" required>
+                <button type="submit">注册</button>
+            </form>
+            <footer>
+                <a href="/login">已有账户？登录</a>
+            </footer>
+        </article>
+    </main>
+</body>
+</html>

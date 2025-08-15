@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>用户管理</title>
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+</head>
+<body>
+    <nav class="container-fluid">
+        <ul>
+            <li><strong>Gatekeeper</strong></li>
+        </ul>
+        <ul>
+            <li><a href="/">仪表盘</a></li>
+            <li><a href="/apply">申请白名单</a></li>
+            <li><a href="/admin/users" class="secondary">用户管理</a></li>
+            <li><a href="/change-password">修改密码</a></li>
+            <li><a href="/logout">登出</a></li>
+        </ul>
+    </nav>
+    <main class="container">
+        <hgroup>
+            <h1>用户管理</h1>
+            <h2>重置用户密码</h2>
+        </hgroup>
+        {{if .SuccessMessage}}
+        <p style="color: green;">{{.SuccessMessage}}</p>
+        {{end}}
+        <table>
+            <thead>
+                <tr>
+                    <th>用户名</th>
+                    <th>角色</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Users}}
+                <tr>
+                    <td>{{.Username}}</td>
+                    <td>{{.Role}}</td>
+                    <td>
+                        <form action="/admin/reset-password" method="post">
+                            <input type="hidden" name="user_id" value="{{.ID}}">
+                            <button type="submit" class="secondary" onclick="return confirm('您确定要重置 {{.Username}} 的密码吗？')">重置密码</button>
+                        </form>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </main>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>登录</title>
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        article {
+            width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <article>
+            <hgroup>
+                <h1>Gatekeeper 登录</h1>
+                <h2>请登录以继续</h2>
+            </hgroup>
+            <form method="post">
+                <label for="username">用户名</label>
+                <input type="text" id="username" name="username" required>
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" required>
+                <button type="submit">登录</button>
+            </form>
+            <footer>
+                <a href="/register">没有账户？注册</a>
+            </footer>
+        </article>
+    </main>
+</body>
+</html>

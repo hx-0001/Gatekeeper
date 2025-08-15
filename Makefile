@@ -12,7 +12,9 @@ help:
 	@echo "  test-database - Run database tests only"
 	@echo "  test-handlers - Run handler tests only"
 	@echo "  test-integration - Run integration tests only"
-	@echo "  run           - Build and run the application (requires sudo)"
+	@echo "  run           - Build and run with default config (requires sudo)"
+	@echo "  run-config    - Run with custom config: make run-config CONFIG=file.json"
+	@echo "  config        - Create config.json from example template"
 	@echo "  clean         - Clean build artifacts"
 
 # Build the application
@@ -59,6 +61,18 @@ run: build
 	@echo "🚀 Starting Gatekeeper (requires sudo for iptables access)..."
 	@echo "⚠️  Make sure you have sudo privileges"
 	sudo ./gatekeeper_app
+
+# Run with custom config file
+run-config: build
+	@echo "🚀 Starting Gatekeeper with custom config..."
+	@echo "⚠️  Usage: make run-config CONFIG=path/to/config.json"
+	sudo ./gatekeeper_app -config=$(CONFIG)
+
+# Create default config file from example
+config:
+	@echo "📝 Creating default config.json from example..."
+	cp config.example.json config.json
+	@echo "✅ Config file created. Edit config.json to customize settings."
 
 # Clean build artifacts
 clean:

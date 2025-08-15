@@ -6,15 +6,20 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 	_ "github.com/mattn/go-sqlite3"
+	"gatekeeper/config"
 	"gatekeeper/models"
 )
 
 var DB *sql.DB
+var dbConfig *config.Config
 
 // InitDB initializes the database connection and creates tables if they don't exist.
 func InitDB(dataSourceName string) {
+	// Get current configuration
+	dbConfig = config.GetConfig()
+	
 	var err error
-	DB, err = sql.Open("sqlite3", dataSourceName)
+	DB, err = sql.Open(dbConfig.Database.Driver, dataSourceName)
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
@@ -68,11 +73,11 @@ func initAdminUser() {
 
 	// If no users exist, create the admin user
 	if userCount == 0 {
-		username := "admin"
-		password := "admin"
-		role := "approver"
+		username := dbConfig.Admin.Username
+		password := dbConfig.Admin.Password
+		role := dbConfig.Admin.Role
 
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), dbConfig.Security.BcryptCost)
 		if err != nil {
 			log.Fatalf("Could not hash password: %v", err)
 		}
@@ -86,7 +91,7 @@ func initAdminUser() {
 		if _, err := stmt.Exec(username, string(hashedPassword), role); err != nil {
 			log.Fatalf("Could not insert admin user: %v", err)
 		}
-		log.Println("Admin user created successfully.")
+		log.Printf("Admin user '%s' created successfully.", username)
 	}
 }
 

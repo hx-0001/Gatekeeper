@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"gatekeeper/config"
 	"gatekeeper/database"
 	"gatekeeper/models"
 	"html/template"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"time"
@@ -17,12 +19,20 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var store = sessions.NewCookieStore([]byte("something-very-secret"))
+var store *sessions.CookieStore
 var templates *template.Template
+var appConfig *config.Config
 
-func init() {
-	// Try to load templates, but don't panic if not found (for testing)
-	tmpl, err := template.ParseGlob("templates/*.html")
+// InitHandlers initializes handlers with configuration
+func InitHandlers(cfg *config.Config) {
+	appConfig = cfg
+	
+	// Initialize session store with configured secret key
+	store = sessions.NewCookieStore([]byte(cfg.Session.SecretKey))
+	
+	// Initialize templates with configured directory
+	templatesPath := filepath.Join(cfg.Templates.Directory, cfg.Templates.Pattern)
+	tmpl, err := template.ParseGlob(templatesPath)
 	if err != nil {
 		// Create a dummy template for testing
 		templates = template.New("dummy")
@@ -30,6 +40,29 @@ func init() {
 	} else {
 		templates = tmpl
 	}
+}
+
+// ensureConfig ensures configuration is available, falling back to defaults if needed
+func ensureConfig() *config.Config {
+	if appConfig == nil {
+		appConfig = config.GetConfig()
+		if store == nil {
+			store = sessions.NewCookieStore([]byte(appConfig.Session.SecretKey))
+		}
+		if templates == nil {
+			// Initialize templates with configured directory
+			templatesPath := filepath.Join(appConfig.Templates.Directory, appConfig.Templates.Pattern)
+			tmpl, err := template.ParseGlob(templatesPath)
+			if err != nil {
+				// Create a dummy template for testing
+				templates = template.New("dummy")
+				templates.Parse(`<html><body>{{.}}</body></html>`)
+			} else {
+				templates = tmpl
+			}
+		}
+	}
+	return appConfig
 }
 
 // --- User Handlers ---
@@ -44,7 +77,8 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 
-		re := regexp.MustCompile(`^([a-z]\d{5}|\d{5})$`)
+		cfg := ensureConfig()
+		re := regexp.MustCompile(cfg.Security.UsernamePattern)
 		if !re.MatchString(username) {
 			http.Error(w, "Invalid username format. Use 5 digits or 1 letter followed by 5 digits.", http.StatusBadRequest)
 			return
@@ -57,13 +91,19 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), cfg.Security.BcryptCost)
 		if err != nil {
 			http.Error(w, "Server error, unable to create your account.", http.StatusInternalServerError)
 			return
 		}
 
-		_, err = database.DB.Exec("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", username, string(hashedPassword), "applicant")
+		// Set default role to first allowed role (typically "applicant")
+		defaultRole := "applicant"
+		if len(cfg.Security.AllowedRoles) > 0 {
+			defaultRole = cfg.Security.AllowedRoles[0]
+		}
+		
+		_, err = database.DB.Exec("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", username, string(hashedPassword), defaultRole)
 		if err != nil {
 			http.Error(w, "Server error, unable to create your account.", http.StatusInternalServerError)
 			return
@@ -96,7 +136,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		session, _ := store.Get(r, "session-name")
+		cfg := ensureConfig()
+		session, _ := store.Get(r, cfg.Session.Name)
 		session.Values["user_id"] = user.ID
 		session.Values["username"] = user.Username
 		session.Values["role"] = user.Role
@@ -107,7 +148,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "session-name")
+	cfg := ensureConfig()
+	session, _ := store.Get(r, cfg.Session.Name)
 	session.Values["user_id"] = nil
 	session.Options.MaxAge = -1
 	session.Save(r, w)
@@ -115,7 +157,8 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "session-name")
+	cfg := ensureConfig()
+	session, _ := store.Get(r, cfg.Session.Name)
 	userID, ok := session.Values["user_id"].(int)
 	if !ok {
 		userID = 1 // default for testing
@@ -186,7 +229,8 @@ func ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 // --- Core Handlers ---
 
 func DashboardHandler(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "session-name")
+	cfg := ensureConfig()
+	session, _ := store.Get(r, cfg.Session.Name)
 	userID, ok := session.Values["user_id"].(int)
 	if !ok {
 		userID = 1 // default for testing
@@ -257,7 +301,8 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ApplyHandler(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "session-name")
+	cfg := ensureConfig()
+	session, _ := store.Get(r, cfg.Session.Name)
 	role, ok := session.Values["role"].(string)
 	if !ok {
 		// Handle case where role is not set (e.g., in tests)
@@ -316,7 +361,8 @@ func ApplyHandler(w http.ResponseWriter, r *http.Request) {
 // --- Approver Handlers ---
 
 func AdminUsersHandler(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "session-name")
+	cfg := ensureConfig()
+	session, _ := store.Get(r, cfg.Session.Name)
 	userID, ok := session.Values["user_id"].(int)
 	if !ok {
 		userID = 1 // default for testing
@@ -448,7 +494,8 @@ func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, _ := store.Get(r, "session-name")
+	cfg := ensureConfig()
+	session, _ := store.Get(r, cfg.Session.Name)
 	currentUserID, ok := session.Values["user_id"].(int)
 	if !ok {
 		currentUserID = 1 // default for testing
@@ -488,7 +535,7 @@ func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set success message and redirect back to admin users page
-	session, _ = store.Get(r, "session-name")
+	session, _ = store.Get(r, cfg.Session.Name)
 	session.AddFlash(fmt.Sprintf("用户 %s 的密码已重置为: %s", targetUser.Username, defaultPassword))
 	session.Save(r, w)
 
@@ -499,7 +546,8 @@ func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		session, err := store.Get(r, "session-name")
+		cfg := ensureConfig()
+		session, err := store.Get(r, cfg.Session.Name)
 		if err != nil || session.Values["user_id"] == nil {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
@@ -510,7 +558,8 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 func ApproverMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		session, err := store.Get(r, "session-name")
+		cfg := ensureConfig()
+		session, err := store.Get(r, cfg.Session.Name)
 		if err != nil || session.Values["user_id"] == nil {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return

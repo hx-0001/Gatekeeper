@@ -1,0 +1,30 @@
+{
+  "server": {
+    "port": ":8080",
+    "static_dir": "/var/www/gatekeeper/static",
+    "log_level": "warn"
+  },
+  "database": {
+    "path": "/var/lib/gatekeeper/gatekeeper.db",
+    "driver": "sqlite3"
+  },
+  "session": {
+    "secret_key": "generate-a-random-64-character-string-for-production",
+    "name": "gatekeeper-prod-session",
+    "max_age": 28800
+  },
+  "templates": {
+    "directory": "/var/www/gatekeeper/templates",
+    "pattern": "*.html"
+  },
+  "admin": {
+    "username": "administrator",
+    "password": "must-change-on-first-login",
+    "role": "approver"
+  },
+  "security": {
+    "username_pattern": "^([a-z]\\d{5}|\\d{5})$",
+    "allowed_roles": ["applicant", "approver"],
+    "bcrypt_cost": 14
+  }
+}

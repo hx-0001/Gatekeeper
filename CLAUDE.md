@@ -28,10 +28,15 @@ make test-integration # end-to-end workflow tests
 # Build and run (requires sudo)
 make run
 
+# Run with custom config
+make run-config CONFIG=path/to/config.json
+
 # Development workflow
 make dev            # clean + build + test
 make clean          # remove build artifacts
 make coverage       # generate coverage report
+make config         # create config.json from example
+make benchmark      # run performance benchmarks
 ```
 
 ### Manual Commands
@@ -51,6 +56,10 @@ go mod download
 
 # Alternative test runner
 go run run_tests.go
+
+# Run single test file
+go test -v ./models/models_test.go
+go test -v ./database/database_test.go
 ```
 
 ### Configuration

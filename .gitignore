@@ -1,0 +1,31 @@
+# Configuration files (user-specific)
+config.json
+
+# Database files
+*.db
+gatekeeper.db
+
+# Build artifacts
+gatekeeper_app
+gatekeeper_build
+
+# Test coverage files
+coverage.out
+coverage.html
+
+# Log files
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp

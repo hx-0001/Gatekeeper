@@ -1,0 +1,215 @@
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+  skip-dirs:
+    - vendor
+  skip-files:
+    - ".*\\.pb\\.go$"
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+
+linters:
+  enable:
+    - asciicheck      # Simple linter to check that your code does not contain non-ASCII identifiers
+    - bodyclose       # checks whether HTTP response body is closed successfully
+    - cyclop          # checks function and package cyclomatic complexity
+    - deadcode        # Finds unused code
+    - depguard        # Go linter that checks if package imports are in a list of acceptable packages
+    - dogsled         # Checks assignments with too many blank identifiers (e.g. x, _, _, _, := f())
+    - dupl            # Tool for code clone detection
+    - errcheck        # Errcheck is a program for checking for unchecked errors in go programs
+    - exhaustive      # check exhaustiveness of enum switch statements
+    - exportloopref   # checks for pointers to enclosing loop variables
+    - funlen          # Tool for detection of long functions
+    - gochecknoinits  # Checks that no init functions are present in Go code
+    - gocognit        # Computes and checks the cognitive complexity of functions
+    - goconst         # Finds repeated strings that could be replaced by a constant
+    - gocritic        # Provides diagnostics that check for bugs, performance and style issues
+    - gocyclo         # Computes and checks the cyclomatic complexity of functions
+    - godot           # Check if comments end in a period
+    - gofmt           # Gofmt checks whether code was gofmt-ed
+    - goimports       # In addition to fixing imports, goimports also formats your code in the same style as gofmt
+    - golint          # Golint differs from gofmt. Gofmt reformats Go source code, whereas golint prints out style mistakes
+    - gomnd           # An analyzer to detect magic numbers
+    - goprintffuncname # Checks that printf-like functions are named with `f` at the end
+    - gosec           # Inspects source code for security problems
+    - gosimple        # Linter for Go source code that specializes in simplifying a code
+    - govet           # Vet examines Go source code and reports suspicious constructs
+    - ineffassign     # Detects when assignments to existing variables are not used
+    - lll             # Reports long lines
+    - misspell        # Finds commonly misspelled English words in comments
+    - nakedret        # Finds naked returns in functions greater than a specified function length
+    - nestif          # Reports deeply nested if statements
+    - nolintlint      # Reports ill-formed or insufficient nolint directives
+    - prealloc        # Finds slice declarations that could potentially be preallocated
+    - revive          # Fast, configurable, extensible, flexible, and beautiful linter for Go
+    - staticcheck     # Staticcheck is a go vet on steroids, applying a ton of static analysis checks
+    - structcheck     # Finds unused struct fields
+    - stylecheck      # Stylecheck is a replacement for golint
+    - typecheck       # Like the front-end of a Go compiler, parses and type-checks Go code
+    - unconvert       # Remove unnecessary type conversions
+    - unparam         # Reports unused function parameters
+    - unused          # Checks Go code for unused constants, variables, functions and types
+    - varcheck        # Finds unused global variables and constants
+    - whitespace      # Tool for detection of leading and trailing whitespace
+
+  disable:
+    - gochecknoglobals # We allow some global variables
+    - wsl             # Too strict whitespace rules
+
+linters-settings:
+  cyclop:
+    max-complexity: 15
+    package-average: 10.0
+    skip-tests: true
+
+  dupl:
+    threshold: 100
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  exhaustive:
+    check-generated: false
+    default-signifies-exhaustive: false
+
+  funlen:
+    lines: 100
+    statements: 50
+
+  gocognit:
+    min-complexity: 15
+
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+      - wrapperFunc
+
+  gocyclo:
+    min-complexity: 15
+
+  godot:
+    scope: declarations
+    period: true
+    capital: false
+
+  gomnd:
+    settings:
+      mnd:
+        checks: argument,case,condition,operation,return,assign
+        ignored-numbers: 0,1,2,3
+        ignored-functions: strings.SplitN
+
+  gosec:
+    severity: medium
+    confidence: medium
+    excludes:
+      - G401 # Use of weak cryptographic primitive (MD5, SHA1)
+      - G501 # Blacklisted import crypto/md5
+      - G502 # Blacklisted import crypto/des
+
+  gosimple:
+    go: "1.24"
+    checks: ["all"]
+
+  lll:
+    line-length: 140
+
+  misspell:
+    locale: US
+
+  nakedret:
+    max-func-lines: 30
+
+  nestif:
+    min-complexity: 5
+
+  nolintlint:
+    allow-leading-space: true
+    allow-unused: false
+    require-explanation: false
+    require-specific: false
+
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: false
+
+  revive:
+    rules:
+      - name: exported
+        arguments: [true]
+      - name: var-naming
+        arguments: [["ID"], ["VM"]]
+
+  staticcheck:
+    go: "1.24"
+    checks: ["all"]
+
+  stylecheck:
+    go: "1.24"
+    checks: ["all"]
+
+  unparam:
+    check-exported: false
+
+  unused:
+    go: "1.24"
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - funlen
+        - gocognit
+        - gomnd
+
+    # Exclude known linter issues
+    - text: "weak cryptographic primitive"
+      linters:
+        - gosec
+
+    # Exclude SQL injection warnings for prepared statements
+    - text: "G201: SQL string formatting"
+      linters:
+        - gosec
+
+    # Exclude certain directories
+    - path: vendor/
+      linters:
+        - deadcode
+        - structcheck
+        - varcheck
+
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+
+severity:
+  default-severity: error
+  case-sensitive: false

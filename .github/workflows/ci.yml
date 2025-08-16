@@ -1,0 +1,378 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  GO_VERSION: "1.24.5"
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Verify dependencies
+      run: go mod verify
+    
+    - name: Run unit tests
+      run: go test -v ./models/... ./database/... ./config/...
+      
+    - name: Run handler tests
+      run: go test -v ./handlers/...
+      
+    - name: Run integration tests
+      run: go test -v -run "TestIntegration"
+      
+    - name: Run security tests
+      run: go test -v -run "TestSecurity" -count=1
+      
+    - name: Run edge case tests
+      run: go test -v -run "TestEdge" -count=1
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Run tests with coverage
+      run: go test -coverprofile=coverage.out -covermode=atomic ./...
+      
+    - name: Generate coverage report
+      run: go tool cover -html=coverage.out -o coverage.html
+      
+    - name: Check coverage threshold
+      run: |
+        COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+        echo "Total coverage: $COVERAGE%"
+        if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+          echo "Coverage $COVERAGE% is below threshold (70%)"
+          exit 1
+        fi
+        echo "Coverage $COVERAGE% meets threshold"
+      
+    - name: Upload coverage to GitHub
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report
+        path: |
+          coverage.out
+          coverage.html
+
+  benchmark:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Run benchmarks
+      run: go test -bench=. -benchmem -run=^$ -count=3 > benchmark_results.txt
+      
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results
+        path: benchmark_results.txt
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Run gosec security scanner
+      uses: securecodewarrior/github-action-gosec@master
+      with:
+        args: '-severity medium -confidence medium -fmt sarif -out gosec-report.sarif ./...'
+        
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: gosec-report.sarif
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        args: --timeout=5m
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        BINARY_NAME=gatekeeper
+        if [ "$GOOS" = "windows" ]; then
+          BINARY_NAME="${BINARY_NAME}.exe"
+        fi
+        go build -o "${BINARY_NAME}" -ldflags="-s -w" .
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: gatekeeper-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: gatekeeper*
+
+  validate-config:
+    name: Validate Configuration
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Validate example configs
+      run: |
+        if [ -f "config.example.json" ]; then
+          echo "Validating config.example.json"
+          go run -c 'package main; import "encoding/json"; import "os"; import "gatekeeper/config"; func main() { var cfg config.Config; data, _ := os.ReadFile("config.example.json"); json.Unmarshal(data, &cfg) }'
+        fi
+        
+        if [ -f "config.prod.example.json" ]; then
+          echo "Validating config.prod.example.json"
+          go run -c 'package main; import "encoding/json"; import "os"; import "gatekeeper/config"; func main() { var cfg config.Config; data, _ := os.ReadFile("config.prod.example.json"); json.Unmarshal(data, &cfg) }'
+        fi
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Generate documentation
+      run: |
+        go doc ./... > API_DOCUMENTATION.md
+        echo "# API Documentation" > temp_doc.md
+        echo "" >> temp_doc.md
+        echo "Generated on $(date)" >> temp_doc.md
+        echo "" >> temp_doc.md
+        cat API_DOCUMENTATION.md >> temp_doc.md
+        mv temp_doc.md API_DOCUMENTATION.md
+        
+    - name: Upload documentation
+      uses: actions/upload-artifact@v3
+      with:
+        name: api-documentation
+        path: API_DOCUMENTATION.md
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: build
+    
+    services:
+      sqlite:
+        image: alpine:latest
+        options: >-
+          --health-cmd "sqlite3 --version"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Install SQLite
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y sqlite3
+        
+    - name: Run integration tests
+      run: |
+        # Create test config
+        cp config.example.json test_config.json
+        
+        # Run integration tests with longer timeout
+        go test -v -timeout 30m -run "TestIntegration" ./...
+        
+    - name: Cleanup test artifacts
+      run: |
+        rm -f test_config.json
+        rm -f gatekeeper_test.db
+
+  performance:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Run performance benchmarks
+      run: |
+        echo "Running performance benchmarks..."
+        go test -bench=BenchmarkBcrypt -benchmem -count=5 > bcrypt_bench.txt
+        go test -bench=BenchmarkDatabase -benchmem -count=5 > database_bench.txt
+        go test -bench=BenchmarkHandler -benchmem -count=5 > handler_bench.txt
+        go test -bench=BenchmarkConcurrent -benchmem -count=3 > concurrent_bench.txt
+        
+    - name: Analyze performance results
+      run: |
+        echo "=== Bcrypt Performance ===" >> performance_report.txt
+        cat bcrypt_bench.txt >> performance_report.txt
+        echo "" >> performance_report.txt
+        echo "=== Database Performance ===" >> performance_report.txt
+        cat database_bench.txt >> performance_report.txt
+        echo "" >> performance_report.txt
+        echo "=== Handler Performance ===" >> performance_report.txt
+        cat handler_bench.txt >> performance_report.txt
+        echo "" >> performance_report.txt
+        echo "=== Concurrency Performance ===" >> performance_report.txt
+        cat concurrent_bench.txt >> performance_report.txt
+        
+    - name: Upload performance report
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-report
+        path: |
+          performance_report.txt
+          *_bench.txt

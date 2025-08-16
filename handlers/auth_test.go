@@ -292,8 +292,8 @@ func TestRegisterHandler_POST_DuplicateUsername(t *testing.T) {
 		t.Errorf("Handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
 	}
 	
-	if !strings.Contains(rr.Body.String(), "already exists") {
-		t.Error("Response should indicate username already exists")
+	if !strings.Contains(rr.Body.String(), "用户名已存在") {
+		t.Errorf("Response should indicate username already exists, got: %s", rr.Body.String())
 	}
 }
 

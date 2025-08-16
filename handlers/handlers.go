@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"gatekeeper/config"
 	"gatekeeper/database"
@@ -65,6 +66,52 @@ func ensureConfig() *config.Config {
 	return appConfig
 }
 
+// JSON response helpers
+type JSONResponse struct {
+	Success  bool   `json:"success"`
+	Message  string `json:"message,omitempty"`
+	Error    string `json:"error,omitempty"`
+	Redirect string `json:"redirect,omitempty"`
+}
+
+// isAjaxRequest checks if the request is made via AJAX
+func isAjaxRequest(r *http.Request) bool {
+	return r.Header.Get("X-Requested-With") == "XMLHttpRequest"
+}
+
+// respondWithError responds with either JSON or HTML error based on request type
+func respondWithError(w http.ResponseWriter, r *http.Request, message string, statusCode int) {
+	if isAjaxRequest(r) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(statusCode)
+		json.NewEncoder(w).Encode(JSONResponse{
+			Success: false,
+			Error:   message,
+		})
+	} else {
+		http.Error(w, message, statusCode)
+	}
+}
+
+// respondWithSuccess responds with either JSON or redirect based on request type
+func respondWithSuccess(w http.ResponseWriter, r *http.Request, message string, redirectURL string) {
+	if isAjaxRequest(r) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(JSONResponse{
+			Success:  true,
+			Message:  message,
+			Redirect: redirectURL,
+		})
+	} else {
+		if redirectURL != "" {
+			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		} else {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, message)
+		}
+	}
+}
+
 // --- User Handlers ---
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -80,20 +127,20 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		cfg := ensureConfig()
 		re := regexp.MustCompile(cfg.Security.UsernamePattern)
 		if !re.MatchString(username) {
-			http.Error(w, "Invalid username format. Use 5 digits or 1 letter followed by 5 digits.", http.StatusBadRequest)
+			respondWithError(w, r, "用户名格式无效。请使用5位数字或1个字母后跟5位数字。", http.StatusBadRequest)
 			return
 		}
 
 		var existingUser models.User
 		err := database.DB.QueryRow("SELECT username FROM users WHERE username = ?", username).Scan(&existingUser.Username)
 		if err != sql.ErrNoRows {
-			http.Error(w, "Username already exists.", http.StatusBadRequest)
+			respondWithError(w, r, "用户名已存在。", http.StatusBadRequest)
 			return
 		}
 
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), cfg.Security.BcryptCost)
 		if err != nil {
-			http.Error(w, "Server error, unable to create your account.", http.StatusInternalServerError)
+			respondWithError(w, r, "服务器错误，无法创建您的账户。", http.StatusInternalServerError)
 			return
 		}
 
@@ -105,11 +152,11 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		
 		_, err = database.DB.Exec("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", username, string(hashedPassword), defaultRole)
 		if err != nil {
-			http.Error(w, "Server error, unable to create your account.", http.StatusInternalServerError)
+			respondWithError(w, r, "服务器错误，无法创建您的账户。", http.StatusInternalServerError)
 			return
 		}
 
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		respondWithSuccess(w, r, "账户创建成功！", "/login")
 	}
 }
 
@@ -126,13 +173,13 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		var user models.User
 		err := database.DB.QueryRow("SELECT id, username, password, role FROM users WHERE username = ?", username).Scan(&user.ID, &user.Username, &user.Password, &user.Role)
 		if err != nil {
-			http.Error(w, "Invalid username or password.", http.StatusUnauthorized)
+			respondWithError(w, r, "用户名或密码无效。", http.StatusUnauthorized)
 			return
 		}
 
 		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 		if err != nil {
-			http.Error(w, "Invalid username or password.", http.StatusUnauthorized)
+			respondWithError(w, r, "用户名或密码无效。", http.StatusUnauthorized)
 			return
 		}
 
@@ -143,7 +190,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		session.Values["role"] = user.Role
 		session.Save(r, w)
 
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		respondWithSuccess(w, r, "登录成功！", "/")
 	}
 }
 
@@ -187,42 +234,36 @@ func ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 		confirmPassword := r.FormValue("confirm_password")
 
 		if newPassword != confirmPassword {
-			data.ErrorMessage = "New passwords do not match."
-			templates.ExecuteTemplate(w, "change_password.html", data)
+			respondWithError(w, r, "新密码不匹配。", http.StatusBadRequest)
 			return
 		}
 
 		var currentPasswordHash string
 		err := database.DB.QueryRow("SELECT password FROM users WHERE id = ?", userID).Scan(&currentPasswordHash)
 		if err != nil {
-			data.ErrorMessage = "Could not retrieve user data."
-			templates.ExecuteTemplate(w, "change_password.html", data)
+			respondWithError(w, r, "无法获取用户数据。", http.StatusInternalServerError)
 			return
 		}
 
 		err = bcrypt.CompareHashAndPassword([]byte(currentPasswordHash), []byte(oldPassword))
 		if err != nil {
-			data.ErrorMessage = "Incorrect old password."
-			templates.ExecuteTemplate(w, "change_password.html", data)
+			respondWithError(w, r, "旧密码不正确。", http.StatusBadRequest)
 			return
 		}
 
 		newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 		if err != nil {
-			data.ErrorMessage = "Error creating new password."
-			templates.ExecuteTemplate(w, "change_password.html", data)
+			respondWithError(w, r, "创建新密码时出错。", http.StatusInternalServerError)
 			return
 		}
 
 		_, err = database.DB.Exec("UPDATE users SET password = ? WHERE id = ?", string(newPasswordHash), userID)
 		if err != nil {
-			data.ErrorMessage = "Could not update password."
-			templates.ExecuteTemplate(w, "change_password.html", data)
+			respondWithError(w, r, "无法更新密码。", http.StatusInternalServerError)
 			return
 		}
 
-		data.SuccessMessage = "Password updated successfully!"
-		templates.ExecuteTemplate(w, "change_password.html", data)
+		respondWithSuccess(w, r, "密码更新成功！", "/change-password")
 	}
 }
 
@@ -337,13 +378,13 @@ func ApplyHandler(w http.ResponseWriter, r *http.Request) {
 
 		port, err := strconv.Atoi(portStr)
 		if err != nil || port < 1 || port > 65535 {
-			http.Error(w, "Invalid port number.", http.StatusBadRequest)
+			respondWithError(w, r, "端口号无效。", http.StatusBadRequest)
 			return
 		}
 
 		re := regexp.MustCompile(`^([0-9]{1,3}\.){3}[0-9]{1,3}$`)
 		if !re.MatchString(ipAddress) {
-			http.Error(w, "Invalid IP address format.", http.StatusBadRequest)
+			respondWithError(w, r, "IP地址格式无效。", http.StatusBadRequest)
 			return
 		}
 
@@ -352,12 +393,12 @@ func ApplyHandler(w http.ResponseWriter, r *http.Request) {
 		if expiresAtStr != "" {
 			parsedTime, err := time.Parse("2006-01-02T15:04", expiresAtStr)
 			if err != nil {
-				http.Error(w, "Invalid expiration date format.", http.StatusBadRequest)
+				respondWithError(w, r, "有效期日期格式无效。", http.StatusBadRequest)
 				return
 			}
 			// Validate that expiration date is in the future
 			if parsedTime.Before(time.Now()) {
-				http.Error(w, "Expiration date must be in the future.", http.StatusBadRequest)
+				respondWithError(w, r, "有效期必须是未来时间。", http.StatusBadRequest)
 				return
 			}
 			expiresAt = &parsedTime
@@ -368,10 +409,10 @@ func ApplyHandler(w http.ResponseWriter, r *http.Request) {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			userID, ipAddress, port, reason, "pending", expiresAt, time.Now(), time.Now())
 		if err != nil {
-			http.Error(w, "Failed to submit application.", http.StatusInternalServerError)
+			respondWithError(w, r, "提交申请失败。", http.StatusInternalServerError)
 			return
 		}
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		respondWithSuccess(w, r, "申请提交成功！", "/")
 	}
 }
 
@@ -427,43 +468,43 @@ func AdminUsersHandler(w http.ResponseWriter, r *http.Request) {
 
 func ApproveHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondWithError(w, r, "方法不允许", http.StatusMethodNotAllowed)
 		return
 	}
 
 	appID, err := strconv.Atoi(r.FormValue("id"))
 	if err != nil {
-		http.Error(w, "Invalid application ID.", http.StatusBadRequest)
+		respondWithError(w, r, "申请ID无效。", http.StatusBadRequest)
 		return
 	}
 
 	var app models.Application
 	err = database.DB.QueryRow("SELECT ip_address, port FROM applications WHERE id = ?", appID).Scan(&app.IPAddress, &app.Port)
 	if err != nil {
-		http.Error(w, "Application not found.", http.StatusNotFound)
+		respondWithError(w, r, "申请未找到。", http.StatusNotFound)
 		return
 	}
 
 	err = executeIPTablesCommand("-A", app.IPAddress, strconv.Itoa(app.Port))
 	if err != nil {
 		updateApplicationStatus(appID, "execution_failed", "")
-		http.Error(w, fmt.Sprintf("Failed to apply iptables rule: %v", err), http.StatusInternalServerError)
+		respondWithError(w, r, fmt.Sprintf("应用iptables规则失败: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	updateApplicationStatus(appID, "approved", "")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	respondWithSuccess(w, r, "申请已批准！", "/")
 }
 
 func RetryHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondWithError(w, r, "方法不允许", http.StatusMethodNotAllowed)
 		return
 	}
 
 	appID, err := strconv.Atoi(r.FormValue("id"))
 	if err != nil {
-		http.Error(w, "Invalid application ID.", http.StatusBadRequest)
+		respondWithError(w, r, "申请ID无效。", http.StatusBadRequest)
 		return
 	}
 
@@ -471,12 +512,12 @@ func RetryHandler(w http.ResponseWriter, r *http.Request) {
 	var currentStatus string
 	err = database.DB.QueryRow("SELECT status FROM applications WHERE id = ?", appID).Scan(&currentStatus)
 	if err != nil {
-		http.Error(w, "Application not found.", http.StatusNotFound)
+		respondWithError(w, r, "申请未找到。", http.StatusNotFound)
 		return
 	}
 
 	if currentStatus != "execution_failed" {
-		http.Error(w, "Application is not in execution_failed status.", http.StatusBadRequest)
+		respondWithError(w, r, "申请不是执行失败状态。", http.StatusBadRequest)
 		return
 	}
 
@@ -484,7 +525,7 @@ func RetryHandler(w http.ResponseWriter, r *http.Request) {
 	var app models.Application
 	err = database.DB.QueryRow("SELECT ip_address, port FROM applications WHERE id = ?", appID).Scan(&app.IPAddress, &app.Port)
 	if err != nil {
-		http.Error(w, "Application not found.", http.StatusNotFound)
+		respondWithError(w, r, "申请未找到。", http.StatusNotFound)
 		return
 	}
 
@@ -492,68 +533,68 @@ func RetryHandler(w http.ResponseWriter, r *http.Request) {
 	err = executeIPTablesCommand("-A", app.IPAddress, strconv.Itoa(app.Port))
 	if err != nil {
 		// Still failed, keep it in execution_failed status but return error
-		http.Error(w, fmt.Sprintf("Retry failed: %v", err), http.StatusInternalServerError)
+		respondWithError(w, r, fmt.Sprintf("重试失败: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	// Success, update status to approved
 	updateApplicationStatus(appID, "approved", "")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	respondWithSuccess(w, r, "重试成功，申请已批准！", "/")
 }
 
 func RejectHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondWithError(w, r, "方法不允许", http.StatusMethodNotAllowed)
 		return
 	}
 
 	appID, err := strconv.Atoi(r.FormValue("id"))
 	if err != nil {
-		http.Error(w, "Invalid application ID.", http.StatusBadRequest)
+		respondWithError(w, r, "申请ID无效。", http.StatusBadRequest)
 		return
 	}
 	reason := r.FormValue("reason")
 	if reason == "" {
-		http.Error(w, "Rejection reason is required.", http.StatusBadRequest)
+		respondWithError(w, r, "拒绝理由是必需的。", http.StatusBadRequest)
 		return
 	}
 
 	updateApplicationStatus(appID, "rejected", reason)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	respondWithSuccess(w, r, "申请已拒绝。", "/")
 }
 
 func RemoveHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondWithError(w, r, "方法不允许", http.StatusMethodNotAllowed)
 		return
 	}
 
 	appID, err := strconv.Atoi(r.FormValue("id"))
 	if err != nil {
-		http.Error(w, "Invalid application ID.", http.StatusBadRequest)
+		respondWithError(w, r, "申请ID无效。", http.StatusBadRequest)
 		return
 	}
 
 	var app models.Application
 	err = database.DB.QueryRow("SELECT ip_address, port FROM applications WHERE id = ?", appID).Scan(&app.IPAddress, &app.Port)
 	if err != nil {
-		http.Error(w, "Application not found.", http.StatusNotFound)
+		respondWithError(w, r, "申请未找到。", http.StatusNotFound)
 		return
 	}
 
 	err = executeIPTablesCommand("-D", app.IPAddress, strconv.Itoa(app.Port))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to remove iptables rule: %v", err), http.StatusInternalServerError)
+		respondWithError(w, r, fmt.Sprintf("移除iptables规则失败: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	updateApplicationStatus(appID, "removed", "")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	respondWithSuccess(w, r, "规则已移除。", "/")
 }
 
 func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		respondWithError(w, r, "方法不允许", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -567,25 +608,25 @@ func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	// Get current user to verify they are an approver
 	currentUser, err := database.GetUserByID(currentUserID)
 	if err != nil {
-		http.Error(w, "Current user not found", http.StatusNotFound)
+		respondWithError(w, r, "当前用户未找到", http.StatusNotFound)
 		return
 	}
 
 	if currentUser.Role != "approver" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		respondWithError(w, r, "未授权", http.StatusUnauthorized)
 		return
 	}
 
 	userID, err := strconv.Atoi(r.FormValue("user_id"))
 	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		respondWithError(w, r, "用户ID无效", http.StatusBadRequest)
 		return
 	}
 
 	// Get the user to be reset
 	targetUser, err := database.GetUserByID(userID)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
+		respondWithError(w, r, "用户未找到", http.StatusNotFound)
 		return
 	}
 
@@ -593,16 +634,13 @@ func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	defaultPassword := "changeme123"
 	err = database.ResetPassword(userID, defaultPassword)
 	if err != nil {
-		http.Error(w, "Failed to reset password", http.StatusInternalServerError)
+		respondWithError(w, r, "重置密码失败", http.StatusInternalServerError)
 		return
 	}
 
-	// Set success message and redirect back to admin users page
-	session, _ = store.Get(r, cfg.Session.Name)
-	session.AddFlash(fmt.Sprintf("用户 %s 的密码已重置为: %s", targetUser.Username, defaultPassword))
-	session.Save(r, w)
-
-	http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
+	// Return success message
+	message := fmt.Sprintf("用户 %s 的密码已重置为: %s", targetUser.Username, defaultPassword)
+	respondWithSuccess(w, r, message, "/admin/users")
 }
 
 // --- Middleware ---

@@ -689,7 +689,40 @@ func updateApplicationStatus(appID int, status string, reason string) {
 }
 
 func executeIPTablesCommand(action, ipAddress, port string) error {
-	cmd := exec.Command("sudo", "iptables", action, "INPUT", "-s", ipAddress, "-p", "tcp", "--dport", port, "-j", "ACCEPT")
+	// For approved applications, use high priority (INSERT at position 1)
+	return ExecuteIPTablesCommandWithPriority(action, ipAddress, port, "ACCEPT", "approved")
+}
+
+// ExecuteIPTablesCommandWithPriority executes iptables commands with priority support
+func ExecuteIPTablesCommandWithPriority(action, ipAddress, port, ruleAction, ruleType string) error {
+	var args []string
+	args = append(args, "sudo", "iptables")
+	
+	// Determine priority based on rule type
+	if ruleType == "approved" {
+		// High priority: Insert at the beginning for approved rules
+		if action == "-A" {
+			args = append(args, "-I", "INPUT", "1") // Insert at position 1
+		} else {
+			args = append(args, action, "INPUT") // Delete uses original action
+		}
+	} else {
+		// Low priority: Append for default rules
+		args = append(args, action, "INPUT")
+	}
+	
+	// Add source IP if specified
+	if ipAddress != "" {
+		args = append(args, "-s", ipAddress)
+	}
+	
+	// Add protocol and port
+	args = append(args, "-p", "tcp", "--dport", port)
+	
+	// Add target action
+	args = append(args, "-j", ruleAction)
+	
+	cmd := exec.Command(args[0], args[1:]...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	

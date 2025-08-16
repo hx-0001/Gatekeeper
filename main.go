@@ -30,6 +30,11 @@ func main() {
 	// Start expiration cleanup service
 	handlers.StartExpirationCleanupService()
 
+	// Load default firewall rules at startup
+	if err := handlers.LoadDefaultRulesAtStartup(); err != nil {
+		log.Printf("Warning: Failed to load default rules: %v", err)
+	}
+
 	// Setup routes
 	http.HandleFunc("/login", handlers.LoginHandler)
 	http.HandleFunc("/register", handlers.RegisterHandler)
@@ -47,6 +52,13 @@ func main() {
 	http.HandleFunc("/admin/remove", handlers.AuthMiddleware(handlers.ApproverMiddleware(handlers.RemoveHandler)))
 	http.HandleFunc("/admin/retry", handlers.AuthMiddleware(handlers.ApproverMiddleware(handlers.RetryHandler)))
 	http.HandleFunc("/admin/reset-password", handlers.AuthMiddleware(handlers.ApproverMiddleware(handlers.ResetPasswordHandler)))
+	
+	// Default rules management routes
+	http.HandleFunc("/admin/default-rules", handlers.AuthMiddleware(handlers.ApproverMiddleware(handlers.DefaultRulesHandler)))
+	http.HandleFunc("/admin/default-rules/add", handlers.AuthMiddleware(handlers.ApproverMiddleware(handlers.AddDefaultRuleHandler)))
+	http.HandleFunc("/admin/default-rules/update", handlers.AuthMiddleware(handlers.ApproverMiddleware(handlers.UpdateDefaultRuleHandler)))
+	http.HandleFunc("/admin/default-rules/delete", handlers.AuthMiddleware(handlers.ApproverMiddleware(handlers.DeleteDefaultRuleHandler)))
+	http.HandleFunc("/api/default-rules", handlers.AuthMiddleware(handlers.ApproverMiddleware(handlers.DefaultRulesAPIHandler)))
 
 	// Serve static files
 	fs := http.FileServer(http.Dir(cfg.Server.StaticDir))

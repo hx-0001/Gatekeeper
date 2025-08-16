@@ -58,12 +58,29 @@ func createTables() {
 		FOREIGN KEY(user_id) REFERENCES users(id)
 	);`
 
+	defaultRulesTable := `
+	CREATE TABLE IF NOT EXISTS default_rules (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		ip_pattern TEXT,
+		port INTEGER NOT NULL,
+		action TEXT NOT NULL,
+		enabled BOOLEAN NOT NULL DEFAULT 1,
+		description TEXT,
+		created_at DATETIME NOT NULL,
+		updated_at DATETIME NOT NULL
+	);`
+
 	if _, err := DB.Exec(usersTable); err != nil {
 		log.Fatalf("Could not create users table: %v", err)
 	}
 
 	if _, err := DB.Exec(applicationsTable); err != nil {
 		log.Fatalf("Could not create applications table: %v", err)
+	}
+
+	if _, err := DB.Exec(defaultRulesTable); err != nil {
+		log.Fatalf("Could not create default_rules table: %v", err)
 	}
 }
 
@@ -205,5 +222,108 @@ func GetExpiredApplications() ([]models.Application, error) {
 // MarkApplicationExpired marks an application as expired and removes it from the firewall
 func MarkApplicationExpired(appID int) error {
 	_, err := DB.Exec("UPDATE applications SET status = 'expired', updated_at = ? WHERE id = ?", time.Now(), appID)
+	return err
+}
+
+// GetAllDefaultRules retrieves all default rules from the database
+func GetAllDefaultRules() ([]models.DefaultRule, error) {
+	query := `
+		SELECT id, name, ip_pattern, port, action, enabled, description, created_at, updated_at
+		FROM default_rules
+		ORDER BY created_at DESC`
+	
+	rows, err := DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rules []models.DefaultRule
+	for rows.Next() {
+		var rule models.DefaultRule
+		err := rows.Scan(&rule.ID, &rule.Name, &rule.IPPattern, &rule.Port, &rule.Action,
+			&rule.Enabled, &rule.Description, &rule.CreatedAt, &rule.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		rules = append(rules, rule)
+	}
+
+	return rules, nil
+}
+
+// GetEnabledDefaultRules retrieves only enabled default rules
+func GetEnabledDefaultRules() ([]models.DefaultRule, error) {
+	query := `
+		SELECT id, name, ip_pattern, port, action, enabled, description, created_at, updated_at
+		FROM default_rules
+		WHERE enabled = 1
+		ORDER BY created_at ASC`
+	
+	rows, err := DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rules []models.DefaultRule
+	for rows.Next() {
+		var rule models.DefaultRule
+		err := rows.Scan(&rule.ID, &rule.Name, &rule.IPPattern, &rule.Port, &rule.Action,
+			&rule.Enabled, &rule.Description, &rule.CreatedAt, &rule.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		rules = append(rules, rule)
+	}
+
+	return rules, nil
+}
+
+// GetDefaultRuleByID retrieves a default rule by ID
+func GetDefaultRuleByID(id int) (models.DefaultRule, error) {
+	var rule models.DefaultRule
+	query := `
+		SELECT id, name, ip_pattern, port, action, enabled, description, created_at, updated_at
+		FROM default_rules WHERE id = ?`
+	
+	err := DB.QueryRow(query, id).Scan(&rule.ID, &rule.Name, &rule.IPPattern, &rule.Port,
+		&rule.Action, &rule.Enabled, &rule.Description, &rule.CreatedAt, &rule.UpdatedAt)
+	
+	return rule, err
+}
+
+// CreateDefaultRule creates a new default rule
+func CreateDefaultRule(rule models.DefaultRule) (int64, error) {
+	query := `
+		INSERT INTO default_rules (name, ip_pattern, port, action, enabled, description, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	
+	now := time.Now()
+	result, err := DB.Exec(query, rule.Name, rule.IPPattern, rule.Port, rule.Action,
+		rule.Enabled, rule.Description, now, now)
+	if err != nil {
+		return 0, err
+	}
+	
+	return result.LastInsertId()
+}
+
+// UpdateDefaultRule updates an existing default rule
+func UpdateDefaultRule(rule models.DefaultRule) error {
+	query := `
+		UPDATE default_rules 
+		SET name = ?, ip_pattern = ?, port = ?, action = ?, enabled = ?, description = ?, updated_at = ?
+		WHERE id = ?`
+	
+	_, err := DB.Exec(query, rule.Name, rule.IPPattern, rule.Port, rule.Action,
+		rule.Enabled, rule.Description, time.Now(), rule.ID)
+	
+	return err
+}
+
+// DeleteDefaultRule deletes a default rule by ID
+func DeleteDefaultRule(id int) error {
+	_, err := DB.Exec("DELETE FROM default_rules WHERE id = ?", id)
 	return err
 }

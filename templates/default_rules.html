@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>默认规则管理</title>
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+    <style>
+        .rule-enabled { color: #28A745; font-weight: bold; }
+        .rule-disabled { color: #DC3545; font-weight: bold; }
+        .action-accept { color: #28A745; font-weight: bold; }
+        .action-drop { color: #DC3545; font-weight: bold; }
+        .rule-form { margin-bottom: 2rem; }
+        .form-row { 
+            display: flex; 
+            gap: 1rem; 
+            align-items: end; 
+            margin-bottom: 1rem; 
+        }
+        .form-row > div { 
+            flex: 1; 
+        }
+        .form-row button {
+            margin: 0;
+        }
+        .btn-small {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            margin: 0.1rem;
+        }
+        .edit-form {
+            display: none;
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+        }
+    </style>
+    <script src="/static/js/common.js"></script>
+</head>
+<body>
+    <nav class="container-fluid">
+        <ul>
+            <li><strong>Gatekeeper</strong></li>
+        </ul>
+        <ul>
+            <li><a href="/">仪表盘</a></li>
+            <li><a href="/apply">申请白名单</a></li>
+            <li><a href="/admin/users">用户管理</a></li>
+            <li><a href="/admin/default-rules">默认规则</a></li>
+            <li><a href="/change-password">修改密码</a></li>
+            <li><a href="/logout">登出</a></li>
+        </ul>
+    </nav>
+    <main class="container">
+        <h2>默认规则管理</h2>
+        <p>管理系统的默认防火墙规则。审批规则具有更高优先级，将覆盖默认规则。</p>
+
+        <!-- Add New Rule Form -->
+        <section class="rule-form">
+            <h3>添加新规则</h3>
+            <form action="/admin/default-rules/add" method="POST">
+                <div class="form-row">
+                    <div>
+                        <label for="name">规则名称 *</label>
+                        <input type="text" name="name" id="name" required placeholder="例：禁止SSH">
+                    </div>
+                    <div>
+                        <label for="ip_pattern">IP模式</label>
+                        <input type="text" name="ip_pattern" id="ip_pattern" placeholder="留空表示所有IP，或输入CIDR">
+                    </div>
+                    <div>
+                        <label for="port">端口 *</label>
+                        <input type="number" name="port" id="port" required min="1" max="65535" placeholder="22">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div>
+                        <label for="action">动作 *</label>
+                        <select name="action" id="action" required>
+                            <option value="DROP">DROP (拒绝)</option>
+                            <option value="ACCEPT">ACCEPT (允许)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="enabled">状态</label>
+                        <label>
+                            <input type="checkbox" name="enabled" id="enabled" value="true" checked>
+                            启用规则
+                        </label>
+                    </div>
+                    <div>
+                        <button type="submit">添加规则</button>
+                    </div>
+                </div>
+                <div>
+                    <label for="description">描述</label>
+                    <textarea name="description" id="description" rows="2" placeholder="规则描述（可选）"></textarea>
+                </div>
+            </form>
+        </section>
+
+        <!-- Existing Rules List -->
+        <section>
+            <h3>现有规则 ({{len .Rules}})</h3>
+            {{if .Rules}}
+            <table>
+                <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>IP模式</th>
+                        <th>端口</th>
+                        <th>动作</th>
+                        <th>状态</th>
+                        <th>描述</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Rules}}
+                    <tr id="rule-{{.ID}}">
+                        <td><strong>{{.Name}}</strong></td>
+                        <td>
+                            {{if .IPPattern}}
+                                {{.IPPattern}}
+                            {{else}}
+                                <em>所有IP</em>
+                            {{end}}
+                        </td>
+                        <td>{{.Port}}</td>
+                        <td>
+                            {{if eq .Action "ACCEPT"}}
+                                <span class="action-accept">ACCEPT</span>
+                            {{else}}
+                                <span class="action-drop">DROP</span>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{if .Enabled}}
+                                <span class="rule-enabled">启用</span>
+                            {{else}}
+                                <span class="rule-disabled">禁用</span>
+                            {{end}}
+                        </td>
+                        <td>{{.Description}}</td>
+                        <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
+                        <td>
+                            <button class="btn-small" onclick="toggleEditForm({{.ID}})">编辑</button>
+                            <form style="display: inline;" action="/admin/default-rules/delete" method="POST" 
+                                  onsubmit="return confirm('确定要删除规则 {{.Name}} 吗？')">
+                                <input type="hidden" name="id" value="{{.ID}}">
+                                <button type="submit" class="btn-small" style="background-color: #dc3545;">删除</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr id="edit-form-{{.ID}}" class="edit-form">
+                        <td colspan="8">
+                            <form action="/admin/default-rules/update" method="POST">
+                                <input type="hidden" name="id" value="{{.ID}}">
+                                <div class="form-row">
+                                    <div>
+                                        <label>规则名称</label>
+                                        <input type="text" name="name" value="{{.Name}}" required>
+                                    </div>
+                                    <div>
+                                        <label>IP模式</label>
+                                        <input type="text" name="ip_pattern" value="{{.IPPattern}}" placeholder="留空表示所有IP">
+                                    </div>
+                                    <div>
+                                        <label>端口</label>
+                                        <input type="number" name="port" value="{{.Port}}" required min="1" max="65535">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div>
+                                        <label>动作</label>
+                                        <select name="action" required>
+                                            <option value="DROP" {{if eq .Action "DROP"}}selected{{end}}>DROP (拒绝)</option>
+                                            <option value="ACCEPT" {{if eq .Action "ACCEPT"}}selected{{end}}>ACCEPT (允许)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label>状态</label>
+                                        <label>
+                                            <input type="checkbox" name="enabled" value="true" {{if .Enabled}}checked{{end}}>
+                                            启用规则
+                                        </label>
+                                    </div>
+                                    <div>
+                                        <button type="submit">保存</button>
+                                        <button type="button" onclick="toggleEditForm({{.ID}})">取消</button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label>描述</label>
+                                    <textarea name="description" rows="2">{{.Description}}</textarea>
+                                </div>
+                            </form>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            {{else}}
+            <p><em>暂无默认规则。点击上方表单添加新规则。</em></p>
+            {{end}}
+        </section>
+
+        <!-- Rules Priority Information -->
+        <section style="margin-top: 2rem;">
+            <h3>规则优先级说明</h3>
+            <div style="background: #f8f9fa; padding: 1rem; border-radius: 0.5rem;">
+                <ol>
+                    <li><strong>最高优先级</strong>：审批通过的规则（插入到iptables最前面）</li>
+                    <li><strong>低优先级</strong>：默认规则（追加到iptables后面）</li>
+                </ol>
+                <p><strong>示例</strong>：如果默认规则禁止端口22，但有审批规则允许特定IP访问端口22，则审批规则生效。</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        function toggleEditForm(ruleId) {
+            const editForm = document.getElementById('edit-form-' + ruleId);
+            if (editForm.style.display === 'none' || editForm.style.display === '') {
+                editForm.style.display = 'table-row';
+            } else {
+                editForm.style.display = 'none';
+            }
+        }
+
+        // Show success/error messages if any
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('success')) {
+            showMessage('操作成功完成！', 'success');
+        }
+        if (urlParams.get('error')) {
+            showMessage('操作失败：' + urlParams.get('error'), 'error');
+        }
+
+        function showMessage(text, type) {
+            const message = document.createElement('div');
+            message.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem;
+                border-radius: 0.5rem;
+                color: white;
+                z-index: 1000;
+                background-color: ${type === 'success' ? '#28a745' : '#dc3545'};
+            `;
+            message.textContent = text;
+            document.body.appendChild(message);
+            
+            setTimeout(() => {
+                document.body.removeChild(message);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

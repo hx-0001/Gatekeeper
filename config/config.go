@@ -10,12 +10,13 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Server   ServerConfig   `json:"server"`
-	Database DatabaseConfig `json:"database"`
-	Session  SessionConfig  `json:"session"`
-	Templates TemplatesConfig `json:"templates"`
-	Admin    AdminConfig    `json:"admin"`
-	Security SecurityConfig `json:"security"`
+	Server     ServerConfig     `json:"server"`
+	Database   DatabaseConfig   `json:"database"`
+	Session    SessionConfig    `json:"session"`
+	Templates  TemplatesConfig  `json:"templates"`
+	Admin      AdminConfig      `json:"admin"`
+	Security   SecurityConfig   `json:"security"`
+	Expiration ExpirationConfig `json:"expiration"`
 }
 
 // ServerConfig contains server-related configuration
@@ -56,6 +57,12 @@ type SecurityConfig struct {
 	UsernamePattern string   `json:"username_pattern"`
 	AllowedRoles    []string `json:"allowed_roles"`
 	BcryptCost      int      `json:"bcrypt_cost"`
+}
+
+// ExpirationConfig contains expiration cleanup configuration
+type ExpirationConfig struct {
+	CleanupInterval int  `json:"cleanup_interval_minutes"`
+	Enabled         bool `json:"enabled"`
 }
 
 var AppConfig *Config
@@ -117,6 +124,10 @@ func getDefaultConfig() *Config {
 			UsernamePattern: `^([a-z]\d{5}|\d{5})$`,
 			AllowedRoles:    []string{"applicant", "approver"},
 			BcryptCost:      12,
+		},
+		Expiration: ExpirationConfig{
+			CleanupInterval: 5,
+			Enabled:         true,
 		},
 	}
 }
@@ -183,6 +194,11 @@ func validateAndSetDefaults(config *Config) {
 	}
 	if config.Security.BcryptCost == 0 {
 		config.Security.BcryptCost = defaults.Security.BcryptCost
+	}
+	
+	// Expiration defaults
+	if config.Expiration.CleanupInterval == 0 {
+		config.Expiration.CleanupInterval = defaults.Expiration.CleanupInterval
 	}
 }
 

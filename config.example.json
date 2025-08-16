@@ -26,5 +26,9 @@
     "username_pattern": "^([a-z]\\d{5}|\\d{5})$",
     "allowed_roles": ["applicant", "approver"],
     "bcrypt_cost": 12
+  },
+  "expiration": {
+    "cleanup_interval_minutes": 5,
+    "enabled": true
   }
 }

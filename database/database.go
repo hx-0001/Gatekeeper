@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"log"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	_ "github.com/mattn/go-sqlite3"
@@ -29,6 +30,7 @@ func InitDB(dataSourceName string) {
 	}
 
 	createTables()
+	migrateDatabase()
 	initAdminUser()
 }
 
@@ -50,6 +52,7 @@ func createTables() {
 		reason TEXT NOT NULL,
 		status TEXT NOT NULL,
 		rejection_reason TEXT,
+		expires_at DATETIME,
 		created_at DATETIME NOT NULL,
 		updated_at DATETIME NOT NULL,
 		FOREIGN KEY(user_id) REFERENCES users(id)
@@ -61,6 +64,44 @@ func createTables() {
 
 	if _, err := DB.Exec(applicationsTable); err != nil {
 		log.Fatalf("Could not create applications table: %v", err)
+	}
+}
+
+func migrateDatabase() {
+	// Check if expires_at column exists
+	var columnExists bool
+	rows, err := DB.Query("PRAGMA table_info(applications)")
+	if err != nil {
+		log.Printf("Warning: Could not check table info: %v", err)
+		return
+	}
+	defer rows.Close()
+	
+	for rows.Next() {
+		var cid int
+		var name, dataType string
+		var notNull, pk bool
+		var defaultValue sql.NullString
+		
+		err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk)
+		if err != nil {
+			continue
+		}
+		
+		if name == "expires_at" {
+			columnExists = true
+			break
+		}
+	}
+	
+	// Add expires_at column if it doesn't exist
+	if !columnExists {
+		_, err := DB.Exec("ALTER TABLE applications ADD COLUMN expires_at DATETIME")
+		if err != nil {
+			log.Printf("Warning: Could not add expires_at column: %v", err)
+		} else {
+			log.Println("Added expires_at column to applications table")
+		}
 	}
 }
 
@@ -132,4 +173,37 @@ func GetUserByID(userID int) (models.User, error) {
 	var user models.User
 	err := DB.QueryRow("SELECT id, username, role FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Username, &user.Role)
 	return user, err
+}
+
+// GetExpiredApplications retrieves all approved applications that have expired
+func GetExpiredApplications() ([]models.Application, error) {
+	query := `
+		SELECT id, user_id, ip_address, port, reason, status, expires_at, created_at, updated_at
+		FROM applications 
+		WHERE status = 'approved' AND expires_at IS NOT NULL AND expires_at <= ?
+		ORDER BY expires_at ASC`
+	
+	rows, err := DB.Query(query, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var applications []models.Application
+	for rows.Next() {
+		var app models.Application
+		err := rows.Scan(&app.ID, &app.UserID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		applications = append(applications, app)
+	}
+
+	return applications, nil
+}
+
+// MarkApplicationExpired marks an application as expired and removes it from the firewall
+func MarkApplicationExpired(appID int) error {
+	_, err := DB.Exec("UPDATE applications SET status = 'expired', updated_at = ? WHERE id = ?", time.Now(), appID)
+	return err
 }

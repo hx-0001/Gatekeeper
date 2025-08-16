@@ -36,6 +36,10 @@
                 <label for="reason">原因</label>
                 <textarea id="reason" name="reason" required></textarea>
                 
+                <label for="expires_at">有效期至 (可选)</label>
+                <input type="datetime-local" id="expires_at" name="expires_at" title="留空表示永久有效">
+                <small>留空表示永久有效。建议设置合理的有效期以提高安全性。</small>
+                
                 <button type="submit">提交申请</button>
             </form>
         </article>

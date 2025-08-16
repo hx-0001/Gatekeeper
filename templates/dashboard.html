@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <title>仪表盘</title>
     <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+    <style>
+        .status-pending { color: #FFA500; font-weight: bold; }
+        .status-approved { color: #28A745; font-weight: bold; }
+        .status-rejected { color: #DC3545; font-weight: bold; }
+        .status-execution_failed { color: #E74C3C; font-weight: bold; background: #FADBD8; padding: 2px 6px; border-radius: 3px; }
+        .status-removed { color: #6C757D; font-weight: bold; }
+    </style>
 </head>
 <body>
     <nav class="container-fluid">
@@ -34,6 +41,8 @@
                         <th>IP地址</th>
                         <th>端口</th>
                         <th>原因</th>
+                        <th>状态</th>
+                        <th>有效期至</th>
                         <th>提交时间</th>
                         <th>操作</th>
                     </tr>
@@ -45,8 +54,11 @@
                         <td>{{.IPAddress}}</td>
                         <td>{{.Port}}</td>
                         <td>{{.Reason}}</td>
+                        <td><span class="status-{{.Status}}">{{.Status}}</span></td>
+                        <td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}永久{{end}}</td>
                         <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
                         <td>
+                            {{if eq .Status "pending"}}
                             <form action="/admin/approve" method="post" style="display: inline;">
                                 <input type="hidden" name="id" value="{{.ID}}">
                                 <button type="submit" class="secondary">批准</button>
@@ -57,6 +69,17 @@
                                 <input type="hidden" name="reason" value="Rejected by approver.">
                                 <button type="submit" class="contrast">拒绝</button>
                             </form>
+                            {{else if eq .Status "execution_failed"}}
+                            <form action="/admin/retry" method="post" style="display: inline;">
+                                <input type="hidden" name="id" value="{{.ID}}">
+                                <button type="submit" class="secondary">重试</button>
+                            </form>
+                            <form action="/admin/reject" method="post" style="display: inline;">
+                                <input type="hidden" name="id" value="{{.ID}}">
+                                <input type="hidden" name="reason" value="Manual rejection after execution failure.">
+                                <button type="submit" class="contrast">拒绝</button>
+                            </form>
+                            {{end}}
                         </td>
                     </tr>
                     {{end}}
@@ -78,6 +101,7 @@
                         <th>端口</th>
                         <th>原因</th>
                         <th>状态</th>
+                        <th>有效期至</th>
                         <th>提交时间</th>
                         <th>操作</th>
                     </tr>
@@ -89,6 +113,7 @@
                         <td>{{.Port}}</td>
                         <td>{{.Reason}}</td>
                         <td><span class="status-{{.Status}}">{{.Status}}</span></td>
+                        <td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}永久{{end}}</td>
                         <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
                         <td>
                             {{if eq .Status "approved"}}

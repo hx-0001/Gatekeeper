@@ -162,11 +162,11 @@ func TestApplicationStatusTransitions(t *testing.T) {
 		{"Pending to Rejected", "pending", "rejected", true},
 		{"Pending to Execution Failed", "pending", "execution_failed", true},
 		{"Approved to Removed", "approved", "removed", true},
+		{"Execution Failed to Approved", "execution_failed", "approved", true}, // Allow retry
 		
 		// Invalid transitions (business logic)
 		{"Rejected to Approved", "rejected", "approved", false},
 		{"Removed to Approved", "removed", "approved", false},
-		{"Execution Failed to Approved", "execution_failed", "approved", false},
 	}
 
 	for _, tt := range tests {

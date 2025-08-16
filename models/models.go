@@ -14,12 +14,13 @@ type User struct {
 type Application struct {
 	ID              int
 	UserID          int
-	Username        string // For display purposes, joined from Users table
+	Username        string    // For display purposes, joined from Users table
 	IPAddress       string
 	Port            int
 	Reason          string
-	Status          string // "pending", "approved", "rejected", "execution_failed", "removed"
+	Status          string    // "pending", "approved", "rejected", "execution_failed", "removed"
 	RejectionReason string
+	ExpiresAt       *time.Time // Optional expiration date for approved applications
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }

@@ -79,7 +79,7 @@ func AddDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 	portStr := strings.TrimSpace(r.FormValue("port"))
 	action := strings.TrimSpace(r.FormValue("action"))
 	enabledStr := r.FormValue("enabled")
-	description := strings.TrimSpace(r.FormValue("description"))
+	approvalResponse := strings.TrimSpace(r.FormValue("approval_response"))
 
 	// Validate required fields
 	if name == "" {
@@ -112,7 +112,7 @@ func AddDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 		Port:        port,
 		Action:      action,
 		Enabled:     enabled,
-		Description: description,
+		ApprovalResponse: approvalResponse,
 	}
 
 	// Save to database
@@ -197,7 +197,7 @@ func UpdateDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 	portStr := strings.TrimSpace(r.FormValue("port"))
 	action := strings.TrimSpace(r.FormValue("action"))
 	enabledStr := r.FormValue("enabled")
-	description := strings.TrimSpace(r.FormValue("description"))
+	approvalResponse := strings.TrimSpace(r.FormValue("approval_response"))
 
 	// Validate required fields
 	if name == "" {
@@ -231,7 +231,7 @@ func UpdateDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 		Port:        port,
 		Action:      action,
 		Enabled:     enabled,
-		Description: description,
+		ApprovalResponse: approvalResponse,
 	}
 
 	// Handle iptables changes

@@ -91,8 +91,8 @@
                     </div>
                 </div>
                 <div>
-                    <label for="description">描述</label>
-                    <textarea name="description" id="description" rows="2" placeholder="规则描述（可选）"></textarea>
+                    <label for="approval_response">审批响应</label>
+                    <textarea name="approval_response" id="approval_response" rows="2" placeholder="审批通过后用户可见的说明（可选）"></textarea>
                 </div>
             </form>
         </section>
@@ -108,7 +108,7 @@
                         <th>端口</th>
                         <th>动作</th>
                         <th>状态</th>
-                        <th>描述</th>
+                        <th>审批响应</th>
                         <th>创建时间</th>
                         <th>操作</th>
                     </tr>
@@ -132,7 +132,7 @@
                                 <span class="rule-disabled">禁用</span>
                             {{end}}
                         </td>
-                        <td>{{.Description}}</td>
+                        <td>{{.ApprovalResponse}}</td>
                         <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
                         <td>
                             <button class="btn-small" onclick="toggleEditForm('{{.ID}}')">编辑</button>
@@ -178,8 +178,8 @@
                                     </div>
                                 </div>
                                 <div>
-                                    <label>描述</label>
-                                    <textarea name="description" rows="2">{{.Description}}</textarea>
+                                    <label>审批响应</label>
+                                    <textarea name="approval_response" rows="2">{{.ApprovalResponse}}</textarea>
                                 </div>
                             </form>
                         </td>

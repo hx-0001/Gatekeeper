@@ -28,13 +28,13 @@ type Application struct {
 
 // DefaultRule represents a global default firewall rule.
 type DefaultRule struct {
-	ID          int
-	Name        string
-	IPPattern   string    // IP pattern: specific IP, CIDR, or empty for all IPs
-	Port        int
-	Action      string    // "ACCEPT" or "DROP"
-	Enabled     bool
-	Description string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID               int
+	Name             string
+	IPPattern        string    // IP pattern: specific IP, CIDR, or empty for all IPs
+	Port             int
+	Action           string    // "ACCEPT" or "DROP"
+	Enabled          bool
+	ApprovalResponse string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }

@@ -426,7 +426,7 @@ func TestDefaultRulesCRUD(t *testing.T) {
 		SELECT id, name, ip_pattern, port, action, enabled, description, created_at, updated_at
 		FROM default_rules WHERE port = ?`, 22).Scan(
 		&rule.ID, &rule.Name, &rule.IPPattern, &rule.Port, &rule.Action,
-		&rule.Enabled, &rule.Description, &rule.CreatedAt, &rule.UpdatedAt)
+		&rule.Enabled, &rule.ApprovalResponse, &rule.CreatedAt, &rule.UpdatedAt)
 	if err != nil {
 		t.Fatalf("Failed to select default rule: %v", err)
 	}

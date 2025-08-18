@@ -235,7 +235,7 @@ func TestDefaultRuleValidation(t *testing.T) {
 				Port:        22,
 				Action:      "DROP",
 				Enabled:     true,
-				Description: "Block SSH access from all IPs",
+				ApprovalResponse: "Block SSH access from all IPs",
 			},
 			expected: true,
 		},
@@ -248,7 +248,7 @@ func TestDefaultRuleValidation(t *testing.T) {
 				Port:        80,
 				Action:      "ACCEPT",
 				Enabled:     true,
-				Description: "Allow HTTP from local network",
+				ApprovalResponse: "Allow HTTP from local network",
 			},
 			expected: true,
 		},
@@ -340,7 +340,7 @@ func TestDefaultRuleFields(t *testing.T) {
 		Port:        8080,
 		Action:      "ACCEPT",
 		Enabled:     true,
-		Description: "Test description",
+		ApprovalResponse: "Test description",
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -364,8 +364,8 @@ func TestDefaultRuleFields(t *testing.T) {
 	if !rule.Enabled {
 		t.Error("Expected rule to be enabled")
 	}
-	if rule.Description != "Test description" {
-		t.Errorf("Expected description 'Test description', got %s", rule.Description)
+	if rule.ApprovalResponse != "Test description" {
+		t.Errorf("Expected description 'Test description', got %s", rule.ApprovalResponse)
 	}
 }
 

@@ -1183,7 +1183,7 @@ func TestApplyHandler_WithDefaultRuleSelection(t *testing.T) {
 		Port:        80,
 		Action:      "ACCEPT", 
 		Enabled:     true,
-		Description: "Default HTTP access rule",
+		ApprovalResponse: "Default HTTP access rule",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1238,7 +1238,7 @@ func TestApplyHandler_ManualApplicationVsDefaultRule(t *testing.T) {
 		Port:        22,
 		Action:      "ACCEPT",
 		Enabled:     true,
-		Description: "SSH access for local network",
+		ApprovalResponse: "SSH access for local network",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1344,7 +1344,7 @@ func TestDashboardHandler_ShowsDefaultRuleInfo(t *testing.T) {
 		Port:        443,
 		Action:      "ACCEPT",
 		Enabled:     true,
-		Description: "HTTPS access",
+		ApprovalResponse: "HTTPS access",
 	})
 	if err != nil {
 		t.Fatal(err)

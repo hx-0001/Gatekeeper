@@ -241,7 +241,7 @@ func TestDefaultRulesCRUDWithIPTables(t *testing.T) {
 				Port:        22,
 				Action:      "DROP",
 				Enabled:     true,
-				Description: "Test SSH blocking rule",
+				ApprovalResponse: "Test SSH blocking rule",
 			},
 		},
 		{
@@ -253,7 +253,7 @@ func TestDefaultRulesCRUDWithIPTables(t *testing.T) {
 				Port:        22,
 				Action:      "DROP",
 				Enabled:     false, // Disabling should remove from iptables
-				Description: "Test SSH blocking rule - disabled",
+				ApprovalResponse: "Test SSH blocking rule - disabled",
 			},
 		},
 		{
@@ -265,7 +265,7 @@ func TestDefaultRulesCRUDWithIPTables(t *testing.T) {
 				Port:        22,
 				Action:      "DROP",
 				Enabled:     true,
-				Description: "Test SSH blocking rule",
+				ApprovalResponse: "Test SSH blocking rule",
 			},
 		},
 	}

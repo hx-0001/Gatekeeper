@@ -85,7 +85,7 @@ func createTables() {
 }
 
 func migrateDatabase() {
-	// Check which columns exist
+	// Check which columns exist in applications table
 	var expiresAtExists, defaultRuleIdExists bool
 	rows, err := DB.Query("PRAGMA table_info(applications)")
 	if err != nil {
@@ -130,6 +130,50 @@ func migrateDatabase() {
 			log.Printf("Warning: Could not add default_rule_id column: %v", err)
 		} else {
 			log.Println("Added default_rule_id column to applications table")
+		}
+	}
+	
+	// Check columns in default_rules table and migrate description to approval_response
+	var approvalResponseExists bool
+	rulesRows, err := DB.Query("PRAGMA table_info(default_rules)")
+	if err != nil {
+		log.Printf("Warning: Could not check default_rules table info: %v", err)
+		return
+	}
+	defer rulesRows.Close()
+	
+	for rulesRows.Next() {
+		var cid int
+		var name, dataType string
+		var notNull, pk bool
+		var defaultValue sql.NullString
+		
+		err := rulesRows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk)
+		if err != nil {
+			continue
+		}
+		
+		if name == "approval_response" {
+			approvalResponseExists = true
+		}
+	}
+	
+	// Migrate description to approval_response if needed
+	if !approvalResponseExists {
+		// Add approval_response column
+		_, err := DB.Exec("ALTER TABLE default_rules ADD COLUMN approval_response TEXT")
+		if err != nil {
+			log.Printf("Warning: Could not add approval_response column: %v", err)
+		} else {
+			log.Println("Added approval_response column to default_rules table")
+			
+			// Copy data from description to approval_response
+			_, err = DB.Exec("UPDATE default_rules SET approval_response = description WHERE description IS NOT NULL")
+			if err != nil {
+				log.Printf("Warning: Could not migrate description data: %v", err)
+			} else {
+				log.Println("Migrated description data to approval_response column")
+			}
 		}
 	}
 }
@@ -240,7 +284,7 @@ func MarkApplicationExpired(appID int) error {
 // GetAllDefaultRules retrieves all default rules from the database
 func GetAllDefaultRules() ([]models.DefaultRule, error) {
 	query := `
-		SELECT id, name, ip_pattern, port, action, enabled, description, created_at, updated_at
+		SELECT id, name, ip_pattern, port, action, enabled, COALESCE(approval_response, description, '') as approval_response, created_at, updated_at
 		FROM default_rules
 		ORDER BY created_at DESC`
 	
@@ -254,7 +298,7 @@ func GetAllDefaultRules() ([]models.DefaultRule, error) {
 	for rows.Next() {
 		var rule models.DefaultRule
 		err := rows.Scan(&rule.ID, &rule.Name, &rule.IPPattern, &rule.Port, &rule.Action,
-			&rule.Enabled, &rule.Description, &rule.CreatedAt, &rule.UpdatedAt)
+			&rule.Enabled, &rule.ApprovalResponse, &rule.CreatedAt, &rule.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -267,7 +311,7 @@ func GetAllDefaultRules() ([]models.DefaultRule, error) {
 // GetEnabledDefaultRules retrieves only enabled default rules
 func GetEnabledDefaultRules() ([]models.DefaultRule, error) {
 	query := `
-		SELECT id, name, ip_pattern, port, action, enabled, description, created_at, updated_at
+		SELECT id, name, ip_pattern, port, action, enabled, COALESCE(approval_response, description, '') as approval_response, created_at, updated_at
 		FROM default_rules
 		WHERE enabled = 1
 		ORDER BY created_at ASC`
@@ -282,7 +326,7 @@ func GetEnabledDefaultRules() ([]models.DefaultRule, error) {
 	for rows.Next() {
 		var rule models.DefaultRule
 		err := rows.Scan(&rule.ID, &rule.Name, &rule.IPPattern, &rule.Port, &rule.Action,
-			&rule.Enabled, &rule.Description, &rule.CreatedAt, &rule.UpdatedAt)
+			&rule.Enabled, &rule.ApprovalResponse, &rule.CreatedAt, &rule.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -296,11 +340,11 @@ func GetEnabledDefaultRules() ([]models.DefaultRule, error) {
 func GetDefaultRuleByID(id int) (models.DefaultRule, error) {
 	var rule models.DefaultRule
 	query := `
-		SELECT id, name, ip_pattern, port, action, enabled, description, created_at, updated_at
+		SELECT id, name, ip_pattern, port, action, enabled, COALESCE(approval_response, description, '') as approval_response, created_at, updated_at
 		FROM default_rules WHERE id = ?`
 	
 	err := DB.QueryRow(query, id).Scan(&rule.ID, &rule.Name, &rule.IPPattern, &rule.Port,
-		&rule.Action, &rule.Enabled, &rule.Description, &rule.CreatedAt, &rule.UpdatedAt)
+		&rule.Action, &rule.Enabled, &rule.ApprovalResponse, &rule.CreatedAt, &rule.UpdatedAt)
 	
 	return rule, err
 }
@@ -308,12 +352,12 @@ func GetDefaultRuleByID(id int) (models.DefaultRule, error) {
 // CreateDefaultRule creates a new default rule
 func CreateDefaultRule(rule models.DefaultRule) (int64, error) {
 	query := `
-		INSERT INTO default_rules (name, ip_pattern, port, action, enabled, description, created_at, updated_at)
+		INSERT INTO default_rules (name, ip_pattern, port, action, enabled, approval_response, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 	
 	now := time.Now()
 	result, err := DB.Exec(query, rule.Name, rule.IPPattern, rule.Port, rule.Action,
-		rule.Enabled, rule.Description, now, now)
+		rule.Enabled, rule.ApprovalResponse, now, now)
 	if err != nil {
 		return 0, err
 	}
@@ -325,11 +369,11 @@ func CreateDefaultRule(rule models.DefaultRule) (int64, error) {
 func UpdateDefaultRule(rule models.DefaultRule) error {
 	query := `
 		UPDATE default_rules 
-		SET name = ?, ip_pattern = ?, port = ?, action = ?, enabled = ?, description = ?, updated_at = ?
+		SET name = ?, ip_pattern = ?, port = ?, action = ?, enabled = ?, approval_response = ?, updated_at = ?
 		WHERE id = ?`
 	
 	_, err := DB.Exec(query, rule.Name, rule.IPPattern, rule.Port, rule.Action,
-		rule.Enabled, rule.Description, time.Now(), rule.ID)
+		rule.Enabled, rule.ApprovalResponse, time.Now(), rule.ID)
 	
 	return err
 }

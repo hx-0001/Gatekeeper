@@ -314,14 +314,16 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	// Enhanced application structure for dashboard with default rule info
 	type ApplicationWithRule struct {
 		models.Application
-		RuleName *string
+		RuleName         *string
+		ApprovalResponse *string
 	}
 
 	var pendingApplications []ApplicationWithRule
 	var allApplications []ApplicationWithRule
 	if isApprover {
 		rows, err := database.DB.Query(`
-			SELECT a.id, a.ip_address, a.port, a.reason, a.status, a.expires_at, a.created_at, a.default_rule_id, u.username, d.name
+			SELECT a.id, a.ip_address, a.port, a.reason, a.status, a.expires_at, a.created_at, a.default_rule_id, u.username, d.name, 
+			       CASE WHEN a.status = 'approved' THEN COALESCE(d.approval_response, d.description, '') ELSE NULL END as approval_response
 			FROM applications a 
 			JOIN users u ON a.user_id = u.id
 			LEFT JOIN default_rules d ON a.default_rule_id = d.id
@@ -333,7 +335,7 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		defer rows.Close()
 		for rows.Next() {
 			var app ApplicationWithRule
-			if err := rows.Scan(&app.ID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.DefaultRuleID, &app.Username, &app.RuleName); err != nil {
+			if err := rows.Scan(&app.ID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.DefaultRuleID, &app.Username, &app.RuleName, &app.ApprovalResponse); err != nil {
 				http.Error(w, "Database error.", http.StatusInternalServerError)
 				return
 			}
@@ -342,7 +344,8 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Get all applications for history view
 		allRows, err := database.DB.Query(`
-			SELECT a.id, a.ip_address, a.port, a.reason, a.status, a.expires_at, a.created_at, a.default_rule_id, u.username, d.name
+			SELECT a.id, a.ip_address, a.port, a.reason, a.status, a.expires_at, a.created_at, a.default_rule_id, u.username, d.name,
+			       CASE WHEN a.status = 'approved' THEN COALESCE(d.approval_response, d.description, '') ELSE NULL END as approval_response
 			FROM applications a 
 			JOIN users u ON a.user_id = u.id
 			LEFT JOIN default_rules d ON a.default_rule_id = d.id
@@ -354,7 +357,7 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		defer allRows.Close()
 		for allRows.Next() {
 			var app ApplicationWithRule
-			if err := allRows.Scan(&app.ID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.DefaultRuleID, &app.Username, &app.RuleName); err != nil {
+			if err := allRows.Scan(&app.ID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.DefaultRuleID, &app.Username, &app.RuleName, &app.ApprovalResponse); err != nil {
 				http.Error(w, "Database error.", http.StatusInternalServerError)
 				return
 			}
@@ -363,7 +366,8 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	myRows, err := database.DB.Query(`
-		SELECT a.id, a.ip_address, a.port, a.reason, a.status, a.expires_at, a.created_at, a.default_rule_id, d.name
+		SELECT a.id, a.ip_address, a.port, a.reason, a.status, a.expires_at, a.created_at, a.default_rule_id, d.name,
+		       CASE WHEN a.status = 'approved' THEN COALESCE(d.approval_response, d.description, '') ELSE NULL END as approval_response
 		FROM applications a 
 		LEFT JOIN default_rules d ON a.default_rule_id = d.id
 		WHERE a.user_id = ? ORDER BY a.created_at DESC`, userID)
@@ -376,7 +380,7 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	var myApplications []ApplicationWithRule
 	for myRows.Next() {
 		var app ApplicationWithRule
-		if err := myRows.Scan(&app.ID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.DefaultRuleID, &app.RuleName); err != nil {
+		if err := myRows.Scan(&app.ID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.DefaultRuleID, &app.RuleName, &app.ApprovalResponse); err != nil {
 			http.Error(w, "Database error.", http.StatusInternalServerError)
 			return
 		}

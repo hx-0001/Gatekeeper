@@ -106,6 +106,7 @@
                         <th>规则类型</th>
                         <th>原因</th>
                         <th>状态</th>
+                        <th>审批响应</th>
                         <th>有效期至</th>
                         <th>提交时间</th>
                         <th>操作</th>
@@ -120,6 +121,7 @@
                         <td>{{if .RuleName}}{{.RuleName}}{{else}}<em>手动</em>{{end}}</td>
                         <td>{{.Reason}}</td>
                         <td><span class="status-{{.Status}}">{{.Status}}</span></td>
+                        <td>{{if and .ApprovalResponse (eq .Status "approved")}}{{.ApprovalResponse}}{{else}}-{{end}}</td>
                         <td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}永久{{end}}</td>
                         <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
                         <td>
@@ -151,6 +153,7 @@
                         <th>规则类型</th>
                         <th>原因</th>
                         <th>状态</th>
+                        <th>审批响应</th>
                         <th>有效期至</th>
                         <th>提交时间</th>
                         <th>操作</th>
@@ -164,6 +167,7 @@
                         <td>{{if .RuleName}}{{.RuleName}}{{else}}<em>手动</em>{{end}}</td>
                         <td>{{.Reason}}</td>
                         <td><span class="status-{{.Status}}">{{.Status}}</span></td>
+                        <td>{{if and .ApprovalResponse (eq .Status "approved")}}{{.ApprovalResponse}}{{else}}-{{end}}</td>
                         <td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}永久{{end}}</td>
                         <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
                         <td>

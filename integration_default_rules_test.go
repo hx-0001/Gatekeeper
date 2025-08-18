@@ -45,7 +45,7 @@ func TestDefaultRulesIntegration(t *testing.T) {
 		Port:        22,
 		Action:      "DROP", 
 		Enabled:     true,
-		Description: "Block SSH access for testing",
+		ApprovalResponse: "Block SSH access for testing",
 	}
 
 	ruleID, err := database.CreateDefaultRule(rule)
@@ -66,7 +66,7 @@ func TestDefaultRulesIntegration(t *testing.T) {
 
 	// Update the rule
 	savedRule.Enabled = false
-	savedRule.Description = "Updated description"
+	savedRule.ApprovalResponse = "Updated description"
 	err = database.UpdateDefaultRule(savedRule)
 	if err != nil {
 		t.Fatalf("Failed to update default rule: %v", err)
@@ -78,7 +78,7 @@ func TestDefaultRulesIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read updated rule: %v", err)
 	}
-	if updatedRule.Enabled || updatedRule.Description != "Updated description" {
+	if updatedRule.Enabled || updatedRule.ApprovalResponse != "Updated description" {
 		t.Error("Rule update was not saved correctly")
 	}
 	t.Log("✅ Verified rule update")
@@ -87,9 +87,9 @@ func TestDefaultRulesIntegration(t *testing.T) {
 	
 	// Create multiple test rules
 	testRules := []models.DefaultRule{
-		{Name: "Block RDP", IPPattern: "", Port: 3389, Action: "DROP", Enabled: true, Description: "Block RDP"},
-		{Name: "Allow HTTP", IPPattern: "192.168.1.0/24", Port: 80, Action: "ACCEPT", Enabled: true, Description: "Allow local HTTP"},
-		{Name: "Disabled rule", IPPattern: "", Port: 443, Action: "DROP", Enabled: false, Description: "Disabled HTTPS block"},
+		{Name: "Block RDP", IPPattern: "", Port: 3389, Action: "DROP", Enabled: true, ApprovalResponse: "Block RDP"},
+		{Name: "Allow HTTP", IPPattern: "192.168.1.0/24", Port: 80, Action: "ACCEPT", Enabled: true, ApprovalResponse: "Allow local HTTP"},
+		{Name: "Disabled rule", IPPattern: "", Port: 443, Action: "DROP", Enabled: false, ApprovalResponse: "Disabled HTTPS block"},
 	}
 
 	for _, r := range testRules {

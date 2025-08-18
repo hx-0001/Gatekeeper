@@ -31,6 +31,14 @@ func InitHandlers(cfg *config.Config) {
 	// Initialize session store with configured secret key
 	store = sessions.NewCookieStore([]byte(cfg.Session.SecretKey))
 	
+	// Configure session options to fix cookie issues
+	store.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   cfg.Session.MaxAge,
+		HttpOnly: true,
+		Secure:   false, // Set to true for HTTPS
+	}
+	
 	// Initialize templates with configured directory
 	templatesPath := filepath.Join(cfg.Templates.Directory, cfg.Templates.Pattern)
 	tmpl, err := template.ParseGlob(templatesPath)
@@ -49,6 +57,13 @@ func ensureConfig() *config.Config {
 		appConfig = config.GetConfig()
 		if store == nil {
 			store = sessions.NewCookieStore([]byte(appConfig.Session.SecretKey))
+			// Configure session options to fix cookie issues
+			store.Options = &sessions.Options{
+				Path:     "/",
+				MaxAge:   appConfig.Session.MaxAge,
+				HttpOnly: true,
+				Secure:   false, // Set to true for HTTPS
+			}
 		}
 		if templates == nil {
 			// Initialize templates with configured directory

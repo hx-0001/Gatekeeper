@@ -167,7 +167,19 @@
                         <td>{{if .RuleName}}{{.RuleName}}{{else}}<em>手动</em>{{end}}</td>
                         <td>{{.Reason}}</td>
                         <td><span class="status-{{.Status}}">{{.Status}}</span></td>
-                        <td>{{if and .ApprovalResponse (eq .Status "approved")}}{{.ApprovalResponse}}{{else}}-{{end}}</td>
+                        <td>
+                            {{if eq .Status "approved"}}
+                                {{if .ApprovalResponse}}{{.ApprovalResponse}}{{else}}-{{end}}
+                            {{else if eq .Status "pending"}}
+                                <em style="color: #6C757D;">审批响应通过后可查看</em>
+                            {{else if eq .Status "rejected"}}
+                                <em style="color: #6C757D;">审批响应通过后可查看</em>
+                            {{else if eq .Status "execution_failed"}}
+                                <em style="color: #6C757D;">审批响应通过后可查看</em>
+                            {{else}}
+                                <em style="color: #6C757D;">审批响应通过后可查看</em>
+                            {{end}}
+                        </td>
                         <td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}永久{{end}}</td>
                         <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
                         <td>

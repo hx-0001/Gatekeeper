@@ -127,7 +127,7 @@ func getDefaultConfig() *Config {
 			Role:     "approver",
 		},
 		Security: SecurityConfig{
-			UsernamePattern: `^([a-z]\d{5}|\d{5})$`,
+			UsernamePattern: `^([\p{Han}]+[a-zA-Z]*\w*\d+|[a-z]\d{5}|\d{5})$`,
 			AllowedRoles:    []string{"applicant", "approver"},
 			BcryptCost:      12,
 		},

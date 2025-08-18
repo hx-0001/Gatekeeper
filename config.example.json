@@ -2,7 +2,8 @@
   "server": {
     "port": ":58080",
     "static_dir": "static",
-    "log_level": "info"
+    "log_level": "info",
+    "use_embedded": true
   },
   "database": {
     "path": "./gatekeeper.db",
@@ -15,7 +16,8 @@
   },
   "templates": {
     "directory": "templates",
-    "pattern": "*.html"
+    "pattern": "*.html",
+    "use_embedded": true
   },
   "admin": {
     "username": "admin",

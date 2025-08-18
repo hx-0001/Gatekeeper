@@ -26,7 +26,7 @@
             </hgroup>
             <form method="post">
                 <label for="username">员工ID</label>
-                <input type="text" id="username" name="username" required pattern="^([a-zA-Z]\d{5}|\d{5})$" title="必须是5位数字或1个字母后跟5位数字。">
+                <input type="text" id="username" name="username" required pattern="^[\p{Han}]+[a-zA-Z]*\w*\d+$" title="请输入中文姓名+工号格式，如：李华12421、王小明w12421">
                 <label for="password">密码</label>
                 <input type="password" id="password" name="password" required>
                 <button type="submit">注册</button>

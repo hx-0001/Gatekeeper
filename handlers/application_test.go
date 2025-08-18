@@ -92,7 +92,7 @@ func TestApplyHandler_POST_ValidApplication(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +211,7 @@ func TestDashboardHandler(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user and applications
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +252,7 @@ func TestApproveHandler_POST(t *testing.T) {
 	}
 	
 	// Create applicant user
-	applicantID, err := createTestUser("12345", "applicant")
+	applicantID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +301,7 @@ func TestRejectHandler_POST(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create pending application
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,7 +341,7 @@ func TestRemoveHandler_POST(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create approved application
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -375,7 +375,7 @@ func TestAdminUsersHandler(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create multiple test users
-	_, err := createTestUser("12345", "applicant")
+	_, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -428,7 +428,7 @@ func TestResetPasswordHandler_POST(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -482,7 +482,7 @@ func TestApplyHandler_WithExpiration(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -525,7 +525,7 @@ func TestGetExpiredApplications(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -584,7 +584,7 @@ func TestMarkApplicationExpired(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user and application
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -617,7 +617,7 @@ func TestCleanupExpiredApplications(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -674,7 +674,7 @@ func TestDashboardHandler_DataBinding(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test users
-	applicantID, err := createTestUser("12345", "applicant")
+	applicantID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -811,7 +811,7 @@ func TestRetryHandler_Success(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -860,7 +860,7 @@ func TestRetryHandler_InvalidStatus(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -924,7 +924,7 @@ func TestApplicationStatusTransitions(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1002,7 +1002,7 @@ func TestDashboardHandler_EmptyData(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create users but no applications
-	applicantID, err := createTestUser("12345", "applicant")
+	applicantID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1068,7 +1068,7 @@ func TestExecutionFailedVisibility(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1171,7 +1171,7 @@ func TestApplyHandler_WithDefaultRuleSelection(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1226,7 +1226,7 @@ func TestApplyHandler_ManualApplicationVsDefaultRule(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1332,7 +1332,7 @@ func TestDashboardHandler_ShowsDefaultRuleInfo(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}

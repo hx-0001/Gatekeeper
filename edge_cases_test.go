@@ -43,7 +43,7 @@ func TestDatabaseConnectionErrors(t *testing.T) {
 		defer database.DB.Close()
 
 		// Create test data
-		userID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+		userID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 		appID, _ := testutils.CreateTestApplication(userID, "192.168.1.100", 8080, "Test", "pending")
 
 		// Verify data exists
@@ -510,15 +510,15 @@ func TestBoundaryConditions(t *testing.T) {
 		}
 	})
 
-	t.Run("UsernameLengthBoundaries", func(t *testing.T) {
+	t.Run("UsernameFormatBoundaries", func(t *testing.T) {
 		usernames := []string{
 			"", // Empty
-			"1234", // Too short (4 digits)
-			"123456", // Too long (6 digits)
-			"12345", // Valid (5 digits)
-			"a1234", // Too short (1 letter + 4 digits)
-			"a123456", // Too long (1 letter + 6 digits)
-			"a12345", // Valid (1 letter + 5 digits)
+			"1234", // Invalid: Only numbers
+			"123456", // Invalid: Only numbers
+			"黄希12421", // Valid: Chinese name + numbers
+			"a1234", // Invalid: Only 1 letter + 4 digits
+			"admin", // Invalid: Plain letters
+			"黄希文w12421", // Valid: Chinese name + letter + numbers
 		}
 
 		for _, username := range usernames {

@@ -152,7 +152,7 @@ func TestUserOperations(t *testing.T) {
 	}
 	
 	result, err := DB.Exec("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", 
-		"12345", string(hashedPassword), "applicant")
+		"黄希12421", string(hashedPassword), "applicant")
 	if err != nil {
 		t.Fatalf("Failed to insert user: %v", err)
 	}
@@ -171,7 +171,7 @@ func TestUserOperations(t *testing.T) {
 		t.Fatalf("Failed to retrieve user: %v", err)
 	}
 	
-	if user.Username != "12345" {
+	if user.Username != "黄希12421" {
 		t.Errorf("Expected username '12345', got %s", user.Username)
 	}
 	
@@ -192,7 +192,7 @@ func TestApplicationOperations(t *testing.T) {
 	// Create a test user first
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("testpassword"), bcrypt.DefaultCost)
 	result, err := DB.Exec("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", 
-		"a12345", string(hashedPassword), "applicant")
+		"黄希文w12421", string(hashedPassword), "applicant")
 	if err != nil {
 		t.Fatalf("Failed to insert user: %v", err)
 	}

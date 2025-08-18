@@ -15,7 +15,7 @@ func TestRetryHandler_POST_Success(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestRetryHandler_POST_WrongStatus(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func TestRetryHandler_POST_IPTablesFailure(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +250,7 @@ func TestRetryHandler_BusinessLogic(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	userID, err := createTestUser("12345", "applicant")
+	userID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}

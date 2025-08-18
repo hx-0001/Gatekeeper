@@ -28,13 +28,13 @@ func TestPasswordSecurity(t *testing.T) {
 		handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 		weakPasswords := []string{
-			"", "123", "abc", "password", "12345", "admin",
+			"", "123", "abc", "password", "黄希12421", "admin",
 		}
 
 		for _, weakPass := range weakPasswords {
 			t.Run(fmt.Sprintf("Password_%s", weakPass), func(t *testing.T) {
 				formData := url.Values{}
-				formData.Set("username", "12345")
+				formData.Set("username", "黄希12421")
 				formData.Set("password", weakPass)
 
 				req, _ := http.NewRequest("POST", "/register", strings.NewReader(formData.Encode()))
@@ -109,7 +109,7 @@ func TestUsernameValidationSecurity(t *testing.T) {
 	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	validUsernames := []string{
-		"12345", "67890", "a12345", "b67890", "z99999",
+		"黄希12421", "黄希文w12421", "李明88888", "王小明a99999",
 	}
 
 	invalidUsernames := []string{
@@ -225,10 +225,10 @@ func TestSessionSecurity(t *testing.T) {
 		defer database.DB.Close()
 
 		// Create test user
-		testutils.CreateTestUser("12345", "password", "applicant")
+		testutils.CreateTestUser("黄希12421", "password", "applicant")
 
 		formData := url.Values{}
-		formData.Set("username", "12345")
+		formData.Set("username", "黄希12421")
 		formData.Set("password", "password")
 
 		req, _ := http.NewRequest("POST", "/login", strings.NewReader(formData.Encode()))
@@ -261,11 +261,11 @@ func TestSessionSecurity(t *testing.T) {
 		defer database.DB.Close()
 
 		// Create test user
-		testutils.CreateTestUser("12345", "password", "applicant")
+		testutils.CreateTestUser("黄希12421", "password", "applicant")
 
 		// Login to get session
 		formData := url.Values{}
-		formData.Set("username", "12345")
+		formData.Set("username", "黄希12421")
 		formData.Set("password", "password")
 
 		loginReq, _ := http.NewRequest("POST", "/login", strings.NewReader(formData.Encode()))
@@ -306,7 +306,7 @@ func TestInputValidationSecurity(t *testing.T) {
 	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	// Create test user
-	userID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+	userID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 
 	t.Run("IPAddressValidation", func(t *testing.T) {
 		maliciousIPs := []string{
@@ -398,7 +398,7 @@ func TestAuthorizationSecurity(t *testing.T) {
 	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	// Create test users with different roles
-	applicantID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+	applicantID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 	approverID, _ := testutils.CreateTestUser("testapprover", "password", "approver")
 
 	// Create test application
@@ -498,7 +498,7 @@ func TestSecurityHeaders(t *testing.T) {
 		defer database.DB.Close()
 
 		// Create user with potentially malicious username (within validation rules)
-		userID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+		userID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 		
 		// Create application with XSS attempt in reason field
 		xssReason := "<script>alert('xss')</script>"
@@ -610,8 +610,8 @@ func TestConfigurationSecurity(t *testing.T) {
 		}
 
 		// Test against known good and bad usernames
-		goodUsernames := []string{"12345", "a12345"}
-		badUsernames := []string{"admin", "root", "user", "test", ""}
+		goodUsernames := []string{"黄希12421", "黄希文w12421", "李明88888", "王小明a99999"}
+		badUsernames := []string{"admin", "root", "user", "test", "", "12345", "a12345"}
 
 		for _, username := range goodUsernames {
 			if !re.MatchString(username) {

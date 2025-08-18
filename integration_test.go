@@ -58,7 +58,7 @@ func TestCompleteUserRegistrationAndLoginFlow(t *testing.T) {
 	
 	// Test user registration
 	registrationData := url.Values{
-		"username": {"12345"},
+		"username": {"黄希12421"},
 		"password": {"testpassword123"},
 	}
 	
@@ -79,7 +79,7 @@ func TestCompleteUserRegistrationAndLoginFlow(t *testing.T) {
 	// Verify user exists in database
 	var userID int
 	var role string
-	err = database.DB.QueryRow("SELECT id, role FROM users WHERE username = ?", "12345").Scan(&userID, &role)
+	err = database.DB.QueryRow("SELECT id, role FROM users WHERE username = ?", "黄希12421").Scan(&userID, &role)
 	if err != nil {
 		t.Fatalf("User should exist after registration: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestCompleteUserRegistrationAndLoginFlow(t *testing.T) {
 	
 	// Test user login
 	loginData := url.Values{
-		"username": {"12345"},
+		"username": {"黄希12421"},
 		"password": {"testpassword123"},
 	}
 	

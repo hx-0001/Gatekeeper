@@ -30,7 +30,7 @@ func TestUserValidation(t *testing.T) {
 			name: "Valid applicant user",
 			user: User{
 				ID:       2,
-				Username: "12345",
+				Username: "黄希12421",
 				Password: "$2a$10$...",
 				Role:     "applicant",
 			},
@@ -70,7 +70,7 @@ func TestApplicationValidation(t *testing.T) {
 			application: Application{
 				ID:              1,
 				UserID:          1,
-				Username:        "12345",
+				Username:        "黄希12421",
 				IPAddress:       "192.168.1.100",
 				Port:            8080,
 				Reason:          "Development access",
@@ -86,7 +86,7 @@ func TestApplicationValidation(t *testing.T) {
 			application: Application{
 				ID:              2,
 				UserID:          2,
-				Username:        "a12345",
+				Username:        "黄希文w12421",
 				IPAddress:       "10.0.0.50",
 				Port:            22,
 				Reason:          "SSH access for maintenance",
@@ -102,7 +102,7 @@ func TestApplicationValidation(t *testing.T) {
 			application: Application{
 				ID:              3,
 				UserID:          1,
-				Username:        "12345",
+				Username:        "黄希12421",
 				IPAddress:       "192.168.1.200",
 				Port:            443,
 				Reason:          "Web access",
@@ -118,7 +118,7 @@ func TestApplicationValidation(t *testing.T) {
 			application: Application{
 				ID:            4,
 				UserID:        2,
-				Username:      "a12345",
+				Username:      "黄希文w12421",
 				IPAddress:     "10.0.0.100",
 				Port:          80,
 				Reason:        "Using predefined HTTP rule",
@@ -134,7 +134,7 @@ func TestApplicationValidation(t *testing.T) {
 			application: Application{
 				ID:            5,
 				UserID:        1,
-				Username:      "12345",
+				Username:      "黄希12421",
 				IPAddress:     "203.0.113.50",
 				Port:          9000,
 				Reason:        "Custom port access",
@@ -382,7 +382,7 @@ func TestApplicationWithDefaultRule(t *testing.T) {
 			application: Application{
 				ID:            1,
 				UserID:        1,
-				Username:      "12345",
+				Username:      "黄希12421",
 				IPAddress:     "192.168.1.100",
 				Port:          80,
 				Reason:        "Using HTTP default rule",
@@ -398,7 +398,7 @@ func TestApplicationWithDefaultRule(t *testing.T) {
 			application: Application{
 				ID:            2,
 				UserID:        1,
-				Username:      "12345",
+				Username:      "黄希12421",
 				IPAddress:     "192.168.1.200",
 				Port:          9000,
 				Reason:        "Custom application",

@@ -119,7 +119,7 @@ func BenchmarkApplicationInsert(b *testing.B) {
 	defer database.DB.Close()
 	
 	// Create a test user
-	userID, err := testutils.CreateTestUser("12345", "password", "applicant")
+	userID, err := testutils.CreateTestUser("黄希12421", "password", "applicant")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func BenchmarkApplicationQuery(b *testing.B) {
 	testutils.SetupTestDB()
 	defer database.DB.Close()
 	
-	userID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+	userID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 	
 	// Insert test applications
 	for i := 0; i < 100; i++ {
@@ -193,11 +193,11 @@ func BenchmarkLoginHandler(b *testing.B) {
 	handlers.InitHandlers(config.AppConfig, embed.FS{})
 	
 	// Create test user
-	testutils.CreateTestUser("12345", "password123", "applicant")
+	testutils.CreateTestUser("黄希12421", "password123", "applicant")
 	
 	// Prepare form data
 	formData := url.Values{}
-	formData.Set("username", "12345")
+	formData.Set("username", "黄希12421")
 	formData.Set("password", "password123")
 	
 	b.ResetTimer()
@@ -258,7 +258,7 @@ func BenchmarkDashboardHandler(b *testing.B) {
 	handlers.InitHandlers(config.AppConfig, embed.FS{})
 	
 	// Create test user and applications
-	userID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+	userID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 	for i := 0; i < 10; i++ {
 		ipAddress := fmt.Sprintf("192.168.1.%d", i+1)
 		testutils.CreateTestApplication(userID, ipAddress, 8080+i, "Test app", "pending")
@@ -452,7 +452,7 @@ func BenchmarkLargeApplicationsList(b *testing.B) {
 	defer database.DB.Close()
 	
 	// Create test user
-	userID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+	userID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 	
 	// Insert many applications
 	applicationCounts := []int{10, 100, 1000, 5000}

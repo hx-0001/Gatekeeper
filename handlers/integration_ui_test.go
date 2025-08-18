@@ -12,7 +12,7 @@ func TestExecutionFailedIntegration(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test users
-	applicantID, err := createTestUser("12345", "applicant")
+	applicantID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestDashboardDataIntegrity(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	applicantID, err := createTestUser("12345", "applicant")
+	applicantID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +243,7 @@ func TestStatusTransitionWorkflow(t *testing.T) {
 	setupTestDatabase()
 	
 	// Create test user
-	applicantID, err := createTestUser("12345", "applicant")
+	applicantID, err := createTestUser("黄希12421", "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -162,7 +162,7 @@ func TestRegisterHandler_POST_ValidUser(t *testing.T) {
 	setupTestDatabase()
 	
 	form := url.Values{}
-	form.Add("username", "12345")
+	form.Add("username", "黄希12421")
 	form.Add("password", "testpassword123")
 	
 	req, err := http.NewRequest("POST", "/register", strings.NewReader(form.Encode()))
@@ -188,7 +188,7 @@ func TestRegisterHandler_POST_ValidUser(t *testing.T) {
 	
 	// Verify user was created in database
 	var count int
-	err = database.DB.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", "12345").Scan(&count)
+	err = database.DB.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", "黄希12421").Scan(&count)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +202,7 @@ func TestRegisterHandler_POST_ValidUserWithLetter(t *testing.T) {
 	setupTestDatabase()
 	
 	form := url.Values{}
-	form.Add("username", "a12345")
+	form.Add("username", "黄希文w12421")
 	form.Add("password", "testpassword123")
 	
 	req, err := http.NewRequest("POST", "/register", strings.NewReader(form.Encode()))
@@ -267,14 +267,14 @@ func TestRegisterHandler_POST_DuplicateUsername(t *testing.T) {
 	// Create user first
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
 	_, err := database.DB.Exec("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", 
-		"12345", string(hashedPassword), "applicant")
+		"黄希12421", string(hashedPassword), "applicant")
 	if err != nil {
 		t.Fatal(err)
 	}
 	
 	// Try to register with same username
 	form := url.Values{}
-	form.Add("username", "12345")
+	form.Add("username", "黄希12421")
 	form.Add("password", "anotherpassword")
 	
 	req, err := http.NewRequest("POST", "/register", strings.NewReader(form.Encode()))

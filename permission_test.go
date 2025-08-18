@@ -73,7 +73,7 @@ func TestAuthenticationMiddleware(t *testing.T) {
 
 	t.Run("AuthenticatedAccessAllowed", func(t *testing.T) {
 		// Create test user and login session
-		userID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+		userID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 
 		req, _ := http.NewRequest("GET", "/dashboard", nil)
 
@@ -81,7 +81,7 @@ func TestAuthenticationMiddleware(t *testing.T) {
 		store := sessions.NewCookieStore([]byte(config.AppConfig.Session.SecretKey))
 		session, _ := store.Get(req, config.AppConfig.Session.Name)
 		session.Values["user_id"] = userID
-		session.Values["username"] = "12345"
+		session.Values["username"] = "黄希12421"
 		session.Values["role"] = "applicant"
 
 		rr := httptest.NewRecorder()
@@ -148,7 +148,7 @@ func TestApproverMiddleware(t *testing.T) {
 	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	// Create test users with different roles
-	applicantID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+	applicantID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 	approverID, _ := testutils.CreateTestUser("67890", "password", "approver")
 
 	t.Run("ApproverOnlyEndpointsBlockApplicants", func(t *testing.T) {
@@ -178,7 +178,7 @@ func TestApproverMiddleware(t *testing.T) {
 				store := sessions.NewCookieStore([]byte(config.AppConfig.Session.SecretKey))
 				session, _ := store.Get(req, config.AppConfig.Session.Name)
 				session.Values["user_id"] = applicantID
-				session.Values["username"] = "12345"
+				session.Values["username"] = "黄希12421"
 				session.Values["role"] = "applicant"
 
 				rr := httptest.NewRecorder()
@@ -304,7 +304,7 @@ func TestApproverMiddleware(t *testing.T) {
 		store := sessions.NewCookieStore([]byte(config.AppConfig.Session.SecretKey))
 		session, _ := store.Get(req, config.AppConfig.Session.Name)
 		session.Values["user_id"] = applicantID
-		session.Values["username"] = "12345"
+		session.Values["username"] = "黄希12421"
 		session.Values["role"] = "invalid_role"
 
 		rr := httptest.NewRecorder()
@@ -340,7 +340,7 @@ func TestApproverMiddleware(t *testing.T) {
 		store := sessions.NewCookieStore([]byte(config.AppConfig.Session.SecretKey))
 		session, _ := store.Get(req, config.AppConfig.Session.Name)
 		session.Values["user_id"] = applicantID
-		session.Values["username"] = "12345"
+		session.Values["username"] = "黄希12421"
 		// No role set
 
 		rr := httptest.NewRecorder()
@@ -378,7 +378,7 @@ func TestRoleBasedAccessControl(t *testing.T) {
 	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	// Create test users
-	applicantID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+	applicantID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 	approverID, _ := testutils.CreateTestUser("67890", "password", "approver")
 
 	t.Run("ApplicantCanAccessUserEndpoints", func(t *testing.T) {
@@ -396,7 +396,7 @@ func TestRoleBasedAccessControl(t *testing.T) {
 				store := sessions.NewCookieStore([]byte(config.AppConfig.Session.SecretKey))
 				session, _ := store.Get(req, config.AppConfig.Session.Name)
 				session.Values["user_id"] = applicantID
-				session.Values["username"] = "12345"
+				session.Values["username"] = "黄希12421"
 				session.Values["role"] = "applicant"
 
 				rr := httptest.NewRecorder()
@@ -517,7 +517,7 @@ func TestRoleBasedAccessControl(t *testing.T) {
 				store := sessions.NewCookieStore([]byte(config.AppConfig.Session.SecretKey))
 				session, _ := store.Get(req, config.AppConfig.Session.Name)
 				session.Values["user_id"] = applicantID
-				session.Values["username"] = "12345"
+				session.Values["username"] = "黄希12421"
 				session.Values["role"] = "applicant"
 
 				rr := httptest.NewRecorder()
@@ -564,7 +564,7 @@ func TestSessionIntegrity(t *testing.T) {
 	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	t.Run("SessionTampering", func(t *testing.T) {
-		userID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+		userID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 
 		req, _ := http.NewRequest("GET", "/admin/users", nil)
 
@@ -572,7 +572,7 @@ func TestSessionIntegrity(t *testing.T) {
 		store := sessions.NewCookieStore([]byte(config.AppConfig.Session.SecretKey))
 		session, _ := store.Get(req, config.AppConfig.Session.Name)
 		session.Values["user_id"] = userID
-		session.Values["username"] = "12345"
+		session.Values["username"] = "黄希12421"
 		session.Values["role"] = "applicant"
 
 		rr := httptest.NewRecorder()
@@ -620,7 +620,7 @@ func TestSessionIntegrity(t *testing.T) {
 	})
 
 	t.Run("ConcurrentSessionSafety", func(t *testing.T) {
-		userID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+		userID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 
 		// Simulate multiple concurrent requests with same user session
 		for i := 0; i < 5; i++ {
@@ -630,7 +630,7 @@ func TestSessionIntegrity(t *testing.T) {
 				store := sessions.NewCookieStore([]byte(config.AppConfig.Session.SecretKey))
 				session, _ := store.Get(req, config.AppConfig.Session.Name)
 				session.Values["user_id"] = userID
-				session.Values["username"] = "12345"
+				session.Values["username"] = "黄希12421"
 				session.Values["role"] = "applicant"
 
 				rr := httptest.NewRecorder()
@@ -667,7 +667,7 @@ func TestDataLevelPermissions(t *testing.T) {
 	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	// Create test users
-	user1ID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+	user1ID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 	user2ID, _ := testutils.CreateTestUser("67890", "password", "applicant")
 	approverID, _ := testutils.CreateTestUser("99999", "password", "approver")
 
@@ -685,7 +685,7 @@ func TestDataLevelPermissions(t *testing.T) {
 		store := sessions.NewCookieStore([]byte(config.AppConfig.Session.SecretKey))
 		session, _ := store.Get(req, config.AppConfig.Session.Name)
 		session.Values["user_id"] = user1ID
-		session.Values["username"] = "12345"
+		session.Values["username"] = "黄希12421"
 		session.Values["role"] = "applicant"
 		
 		rr := httptest.NewRecorder()
@@ -783,7 +783,7 @@ func TestHTTPMethodPermissions(t *testing.T) {
 	config.AppConfig = config.GetConfig()
 	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
-	applicantID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+	applicantID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 	approverID, _ := testutils.CreateTestUser("67890", "password", "approver")
 	appID, _ := testutils.CreateTestApplication(applicantID, "192.168.1.100", 8080, "Test app", "pending")
 
@@ -884,7 +884,7 @@ func TestMissingEndpointsPermissions(t *testing.T) {
 	config.AppConfig = config.GetConfig()
 	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
-	applicantID, _ := testutils.CreateTestUser("12345", "password", "applicant")
+	applicantID, _ := testutils.CreateTestUser("黄希12421", "password", "applicant")
 	approverID, _ := testutils.CreateTestUser("67890", "password", "approver")
 
 	t.Run("DefaultRulesEndpointsPermissions", func(t *testing.T) {
@@ -915,7 +915,7 @@ func TestMissingEndpointsPermissions(t *testing.T) {
 				store := sessions.NewCookieStore([]byte(config.AppConfig.Session.SecretKey))
 				session, _ := store.Get(req, config.AppConfig.Session.Name)
 				session.Values["user_id"] = applicantID
-				session.Values["username"] = "12345"
+				session.Values["username"] = "黄希12421"
 				session.Values["role"] = "applicant"
 				
 				rr := httptest.NewRecorder()

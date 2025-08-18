@@ -93,6 +93,51 @@
             <p>没有待处理的申请。</p>
             {{end}}
         </section>
+
+        <section id="application-history">
+            <h3>审批历史</h3>
+            {{if .AllApplications}}
+            <table>
+                <thead>
+                    <tr>
+                        <th>申请人</th>
+                        <th>IP地址</th>
+                        <th>端口</th>
+                        <th>规则类型</th>
+                        <th>原因</th>
+                        <th>状态</th>
+                        <th>有效期至</th>
+                        <th>提交时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .AllApplications}}
+                    <tr>
+                        <td>{{.Username}}</td>
+                        <td>{{.IPAddress}}</td>
+                        <td>{{.Port}}</td>
+                        <td>{{if .RuleName}}{{.RuleName}}{{else}}<em>手动</em>{{end}}</td>
+                        <td>{{.Reason}}</td>
+                        <td><span class="status-{{.Status}}">{{.Status}}</span></td>
+                        <td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}永久{{end}}</td>
+                        <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
+                        <td>
+                            {{if eq .Status "approved"}}
+                            <form action="/admin/remove" method="post" style="display: inline;">
+                                <input type="hidden" name="id" value="{{.ID}}">
+                                <button type="submit" class="contrast">移除</button>
+                            </form>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            {{else}}
+            <p>没有申请历史。</p>
+            {{end}}
+        </section>
         {{end}}
 
         <section id="my-applications">
@@ -122,7 +167,7 @@
                         <td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}永久{{end}}</td>
                         <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
                         <td>
-                            {{if eq .Status "approved"}}
+                            {{if and (eq .Status "approved") $.IsApprover}}
                             <form action="/admin/remove" method="post">
                                 <input type="hidden" name="id" value="{{.ID}}">
                                 <button type="submit" class="contrast">移除</button>

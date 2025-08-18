@@ -318,6 +318,7 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var pendingApplications []ApplicationWithRule
+	var allApplications []ApplicationWithRule
 	if isApprover {
 		rows, err := database.DB.Query(`
 			SELECT a.id, a.ip_address, a.port, a.reason, a.status, a.expires_at, a.created_at, a.default_rule_id, u.username, d.name
@@ -337,6 +338,27 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			pendingApplications = append(pendingApplications, app)
+		}
+
+		// Get all applications for history view
+		allRows, err := database.DB.Query(`
+			SELECT a.id, a.ip_address, a.port, a.reason, a.status, a.expires_at, a.created_at, a.default_rule_id, u.username, d.name
+			FROM applications a 
+			JOIN users u ON a.user_id = u.id
+			LEFT JOIN default_rules d ON a.default_rule_id = d.id
+			ORDER BY a.created_at DESC`)
+		if err != nil {
+			http.Error(w, "Database error.", http.StatusInternalServerError)
+			return
+		}
+		defer allRows.Close()
+		for allRows.Next() {
+			var app ApplicationWithRule
+			if err := allRows.Scan(&app.ID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.DefaultRuleID, &app.Username, &app.RuleName); err != nil {
+				http.Error(w, "Database error.", http.StatusInternalServerError)
+				return
+			}
+			allApplications = append(allApplications, app)
 		}
 	}
 
@@ -365,11 +387,13 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		Username            string
 		IsApprover          bool
 		PendingApplications []ApplicationWithRule
+		AllApplications     []ApplicationWithRule
 		MyApplications      []ApplicationWithRule
 	}{
 		Username:            username,
 		IsApprover:          isApprover,
 		PendingApplications: pendingApplications,
+		AllApplications:     allApplications,
 		MyApplications:      myApplications,
 	}
 	templates.ExecuteTemplate(w, "dashboard.html", data)

@@ -10,11 +10,13 @@ import (
 	"gatekeeper/database"
 	"gatekeeper/models"
 	"html/template"
+	"net"
 	"net/http"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/sessions"
@@ -404,8 +406,8 @@ func ApplyHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		re := regexp.MustCompile(`^([0-9]{1,3}\.){3}[0-9]{1,3}$`)
-		if !re.MatchString(ipAddress) {
+		// Validate IP address format and ranges
+		if !isValidIPv4(ipAddress) {
 			respondWithError(w, r, "IP地址格式无效。", http.StatusBadRequest)
 			return
 		}
@@ -697,6 +699,32 @@ func ApproverMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 // --- Helper Functions ---
+
+// isValidIPv4 validates an IPv4 address with proper range checking
+func isValidIPv4(ip string) bool {
+	// Check for obviously invalid cases
+	if ip == "" || strings.Contains(ip, "<") || strings.Contains(ip, "'") || strings.Contains(ip, "/") {
+		return false
+	}
+	
+	// Special cases that should be rejected for security
+	if ip == "127.0.0.1" || ip == "localhost" || ip == "0.0.0.0" || ip == "255.255.255.255" {
+		return false
+	}
+	
+	// Use Go's standard library to parse IP
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		return false
+	}
+	
+	// Check if it's IPv4 (not IPv6)
+	if parsedIP.To4() == nil {
+		return false
+	}
+	
+	return true
+}
 
 func updateApplicationStatus(appID int, status string, reason string) {
 	if status == "rejected" {

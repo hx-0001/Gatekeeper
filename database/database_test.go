@@ -31,7 +31,13 @@ func setupTestDB() {
 	// Clear existing data
 	DB.Exec("DELETE FROM applications")
 	DB.Exec("DELETE FROM users WHERE username != 'admin'")
-	DB.Exec("DELETE FROM default_rules")
+	
+	// Check if default_rules table exists before trying to delete from it
+	var tableExists int
+	err := DB.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='default_rules'").Scan(&tableExists)
+	if err == nil && tableExists == 1 {
+		DB.Exec("DELETE FROM default_rules")
+	}
 }
 
 func TestInitDB(t *testing.T) {
@@ -474,6 +480,8 @@ func TestDefaultRulesCRUD(t *testing.T) {
 }
 
 func TestDefaultRulesQuery(t *testing.T) {
+	// Initialize fresh test database to ensure tables exist
+	InitDB(":memory:")
 	setupTestDB()
 	
 	// Debug: List all tables

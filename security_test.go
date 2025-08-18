@@ -399,7 +399,7 @@ func TestAuthorizationSecurity(t *testing.T) {
 
 	// Create test users with different roles
 	applicantID, _ := testutils.CreateTestUser("12345", "password", "applicant")
-	approverID, _ := testutils.CreateTestUser("admin", "password", "approver")
+	approverID, _ := testutils.CreateTestUser("testapprover", "password", "approver")
 
 	// Create test application
 	appID, _ := testutils.CreateTestApplication(applicantID, "192.168.1.100", 8080, "Test app", "pending")

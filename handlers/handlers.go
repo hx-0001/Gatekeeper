@@ -161,7 +161,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		cfg := ensureConfig()
 		re := regexp.MustCompile(cfg.Security.UsernamePattern)
 		if !re.MatchString(username) {
-			respondWithError(w, r, "用户名格式无效。请使用5位数字或1个字母后跟5位数字。", http.StatusBadRequest)
+			respondWithError(w, r, "用户名格式无效。请使用中文姓名+工号格式，如：黄希12421、黄希文w12421", http.StatusBadRequest)
 			return
 		}
 

@@ -24,6 +24,7 @@ type ServerConfig struct {
 	Port       string `json:"port"`
 	StaticDir  string `json:"static_dir"`
 	LogLevel   string `json:"log_level"`
+	UseEmbedded bool  `json:"use_embedded"`
 }
 
 // DatabaseConfig contains database-related configuration
@@ -43,6 +44,7 @@ type SessionConfig struct {
 type TemplatesConfig struct {
 	Directory string `json:"directory"`
 	Pattern   string `json:"pattern"`
+	UseEmbedded bool `json:"use_embedded"`
 }
 
 // AdminConfig contains default admin user configuration
@@ -101,6 +103,7 @@ func getDefaultConfig() *Config {
 			Port:      ":58080",
 			StaticDir: "static",
 			LogLevel:  "info",
+			UseEmbedded: true,
 		},
 		Database: DatabaseConfig{
 			Path:   "./gatekeeper.db",
@@ -114,6 +117,7 @@ func getDefaultConfig() *Config {
 		Templates: TemplatesConfig{
 			Directory: "templates",
 			Pattern:   "*.html",
+			UseEmbedded: true,
 		},
 		Admin: AdminConfig{
 			Username: "admin",

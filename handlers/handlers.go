@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"database/sql"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"gatekeeper/config"
@@ -24,8 +25,8 @@ var store *sessions.CookieStore
 var templates *template.Template
 var appConfig *config.Config
 
-// InitHandlers initializes handlers with configuration
-func InitHandlers(cfg *config.Config) {
+// InitHandlers initializes handlers with configuration and embedded templates
+func InitHandlers(cfg *config.Config, templateFiles embed.FS) {
 	appConfig = cfg
 	
 	// Initialize session store with configured secret key
@@ -39,15 +40,28 @@ func InitHandlers(cfg *config.Config) {
 		Secure:   false, // Set to true for HTTPS
 	}
 	
-	// Initialize templates with configured directory
-	templatesPath := filepath.Join(cfg.Templates.Directory, cfg.Templates.Pattern)
-	tmpl, err := template.ParseGlob(templatesPath)
-	if err != nil {
-		// Create a dummy template for testing
-		templates = template.New("dummy")
-		templates.Parse(`<html><body>{{.}}</body></html>`)
+	// Initialize templates based on configuration
+	if cfg.Templates.UseEmbedded {
+		// Use embedded templates
+		tmpl, err := template.ParseFS(templateFiles, "templates/*.html")
+		if err != nil {
+			// Create a dummy template for testing
+			templates = template.New("dummy")
+			templates.Parse(`<html><body>{{.}}</body></html>`)
+		} else {
+			templates = tmpl
+		}
 	} else {
-		templates = tmpl
+		// Use filesystem templates
+		templatesPath := filepath.Join(cfg.Templates.Directory, cfg.Templates.Pattern)
+		tmpl, err := template.ParseGlob(templatesPath)
+		if err != nil {
+			// Create a dummy template for testing
+			templates = template.New("dummy")
+			templates.Parse(`<html><body>{{.}}</body></html>`)
+		} else {
+			templates = tmpl
+		}
 	}
 }
 
@@ -66,16 +80,9 @@ func ensureConfig() *config.Config {
 			}
 		}
 		if templates == nil {
-			// Initialize templates with configured directory
-			templatesPath := filepath.Join(appConfig.Templates.Directory, appConfig.Templates.Pattern)
-			tmpl, err := template.ParseGlob(templatesPath)
-			if err != nil {
-				// Create a dummy template for testing
-				templates = template.New("dummy")
-				templates.Parse(`<html><body>{{.}}</body></html>`)
-			} else {
-				templates = tmpl
-			}
+			// Create a dummy template for testing (embedded templates should be initialized via InitHandlers)
+			templates = template.New("dummy")
+			templates.Parse(`<html><body>{{.}}</body></html>`)
 		}
 	}
 	return appConfig
@@ -704,7 +711,40 @@ func updateApplicationStatus(appID int, status string, reason string) {
 }
 
 func executeIPTablesCommand(action, ipAddress, port string) error {
-	cmd := exec.Command("sudo", "iptables", action, "INPUT", "-s", ipAddress, "-p", "tcp", "--dport", port, "-j", "ACCEPT")
+	// For approved applications, use high priority (INSERT at position 1)
+	return ExecuteIPTablesCommandWithPriority(action, ipAddress, port, "ACCEPT", "approved")
+}
+
+// ExecuteIPTablesCommandWithPriority executes iptables commands with priority support
+func ExecuteIPTablesCommandWithPriority(action, ipAddress, port, ruleAction, ruleType string) error {
+	var args []string
+	args = append(args, "sudo", "iptables")
+	
+	// Determine priority based on rule type
+	if ruleType == "approved" {
+		// High priority: Insert at the beginning for approved rules
+		if action == "-A" {
+			args = append(args, "-I", "INPUT", "1") // Insert at position 1
+		} else {
+			args = append(args, action, "INPUT") // Delete uses original action
+		}
+	} else {
+		// Low priority: Append for default rules
+		args = append(args, action, "INPUT")
+	}
+	
+	// Add source IP if specified
+	if ipAddress != "" {
+		args = append(args, "-s", ipAddress)
+	}
+	
+	// Add protocol and port
+	args = append(args, "-p", "tcp", "--dport", port)
+	
+	// Add target action
+	args = append(args, "-j", ruleAction)
+	
+	cmd := exec.Command(args[0], args[1:]...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	

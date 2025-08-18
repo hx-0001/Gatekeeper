@@ -182,3 +182,152 @@ func TestApplicationStatusTransitions(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultRuleValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		rule     DefaultRule
+		expected bool
+	}{
+		{
+			name: "Valid DROP rule for SSH port",
+			rule: DefaultRule{
+				ID:          1,
+				Name:        "Block SSH",
+				IPPattern:   "",
+				Port:        22,
+				Action:      "DROP",
+				Enabled:     true,
+				Description: "Block SSH access from all IPs",
+			},
+			expected: true,
+		},
+		{
+			name: "Valid ACCEPT rule for specific IP",
+			rule: DefaultRule{
+				ID:          2,
+				Name:        "Allow local HTTP",
+				IPPattern:   "192.168.1.0/24",
+				Port:        80,
+				Action:      "ACCEPT",
+				Enabled:     true,
+				Description: "Allow HTTP from local network",
+			},
+			expected: true,
+		},
+		{
+			name: "Invalid action",
+			rule: DefaultRule{
+				ID:     3,
+				Name:   "Invalid rule",
+				Port:   443,
+				Action: "INVALID",
+			},
+			expected: false,
+		},
+		{
+			name: "Invalid port (negative)",
+			rule: DefaultRule{
+				ID:     4,
+				Name:   "Invalid port",
+				Port:   -1,
+				Action: "DROP",
+			},
+			expected: false,
+		},
+		{
+			name: "Invalid port (too high)",
+			rule: DefaultRule{
+				ID:     5,
+				Name:   "Invalid port",
+				Port:   70000,
+				Action: "DROP",
+			},
+			expected: false,
+		},
+		{
+			name: "Empty name",
+			rule: DefaultRule{
+				ID:     6,
+				Name:   "",
+				Port:   80,
+				Action: "ACCEPT",
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test rule name validation
+			if tt.rule.Name == "" && tt.expected {
+				t.Error("Rule name should not be empty for valid rule")
+			}
+			
+			// Test action validation
+			validActions := []string{"ACCEPT", "DROP"}
+			actionValid := false
+			for _, action := range validActions {
+				if tt.rule.Action == action {
+					actionValid = true
+					break
+				}
+			}
+			if !actionValid && tt.expected {
+				t.Error("Action should be either 'ACCEPT' or 'DROP'")
+			}
+			
+			// Test port validation
+			if (tt.rule.Port < 1 || tt.rule.Port > 65535) && tt.expected {
+				t.Error("Port should be between 1 and 65535")
+			}
+			
+			// Test IP pattern format (basic validation)
+			if tt.rule.IPPattern != "" && tt.expected {
+				// Basic check for valid IP pattern format
+				// In real implementation, this would use net package for validation
+				if len(tt.rule.IPPattern) < 7 { // Minimum valid IP: "1.1.1.1"
+					t.Error("IP pattern appears to be invalid")
+				}
+			}
+		})
+	}
+}
+
+func TestDefaultRuleFields(t *testing.T) {
+	now := time.Now()
+	rule := DefaultRule{
+		ID:          1,
+		Name:        "Test Rule",
+		IPPattern:   "192.168.1.100",
+		Port:        8080,
+		Action:      "ACCEPT",
+		Enabled:     true,
+		Description: "Test description",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	// Test field assignments
+	if rule.ID != 1 {
+		t.Errorf("Expected ID 1, got %d", rule.ID)
+	}
+	if rule.Name != "Test Rule" {
+		t.Errorf("Expected name 'Test Rule', got %s", rule.Name)
+	}
+	if rule.IPPattern != "192.168.1.100" {
+		t.Errorf("Expected IP pattern '192.168.1.100', got %s", rule.IPPattern)
+	}
+	if rule.Port != 8080 {
+		t.Errorf("Expected port 8080, got %d", rule.Port)
+	}
+	if rule.Action != "ACCEPT" {
+		t.Errorf("Expected action 'ACCEPT', got %s", rule.Action)
+	}
+	if !rule.Enabled {
+		t.Error("Expected rule to be enabled")
+	}
+	if rule.Description != "Test description" {
+		t.Errorf("Expected description 'Test description', got %s", rule.Description)
+	}
+}

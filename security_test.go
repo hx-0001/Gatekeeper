@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"gatekeeper/config"
 	"gatekeeper/database"
@@ -24,7 +25,7 @@ func TestPasswordSecurity(t *testing.T) {
 		defer database.DB.Close()
 
 		config.AppConfig = config.GetConfig()
-		handlers.InitHandlers(config.AppConfig)
+		handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 		weakPasswords := []string{
 			"", "123", "abc", "password", "12345", "admin",
@@ -105,7 +106,7 @@ func TestUsernameValidationSecurity(t *testing.T) {
 	defer database.DB.Close()
 
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	validUsernames := []string{
 		"12345", "67890", "a12345", "b67890", "z99999",
@@ -160,7 +161,7 @@ func TestSQLInjectionPrevention(t *testing.T) {
 	defer database.DB.Close()
 
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	// SQL injection attempts
 	sqlInjectionAttempts := []string{
@@ -203,7 +204,7 @@ func TestSQLInjectionPrevention(t *testing.T) {
 
 func TestSessionSecurity(t *testing.T) {
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	t.Run("SessionSecretKeyStrength", func(t *testing.T) {
 		secretKey := config.AppConfig.Session.SecretKey
@@ -302,7 +303,7 @@ func TestInputValidationSecurity(t *testing.T) {
 	defer database.DB.Close()
 
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	// Create test user
 	userID, _ := testutils.CreateTestUser("12345", "password", "applicant")
@@ -394,7 +395,7 @@ func TestAuthorizationSecurity(t *testing.T) {
 	defer database.DB.Close()
 
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	// Create test users with different roles
 	applicantID, _ := testutils.CreateTestUser("12345", "password", "applicant")
@@ -474,7 +475,7 @@ func TestAuthorizationSecurity(t *testing.T) {
 
 func TestSecurityHeaders(t *testing.T) {
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	t.Run("ContentTypeHeaders", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/login", nil)
@@ -525,7 +526,7 @@ func TestRateLimitingConcepts(t *testing.T) {
 	defer database.DB.Close()
 
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	t.Run("LoginAttemptLimit", func(t *testing.T) {
 		// Simulate multiple failed login attempts

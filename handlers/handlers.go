@@ -10,6 +10,7 @@ import (
 	"gatekeeper/database"
 	"gatekeeper/models"
 	"html/template"
+	"log"
 	"net"
 	"net/http"
 	"os/exec"
@@ -176,10 +177,12 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		
 		_, err = database.DB.Exec("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", username, string(hashedPassword), defaultRole)
 		if err != nil {
+			log.Printf("User registration failed for username %s: %v", username, err)
 			respondWithError(w, r, "服务器错误，无法创建您的账户。", http.StatusInternalServerError)
 			return
 		}
 
+		log.Printf("User registered successfully: username=%s, role=%s", username, defaultRole)
 		respondWithSuccess(w, r, "账户创建成功！", "/login")
 	}
 }
@@ -197,12 +200,14 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		var user models.User
 		err := database.DB.QueryRow("SELECT id, username, password, role FROM users WHERE username = ?", username).Scan(&user.ID, &user.Username, &user.Password, &user.Role)
 		if err != nil {
+			log.Printf("Login attempt failed - user not found: username=%s", username)
 			respondWithError(w, r, "用户名或密码无效。", http.StatusUnauthorized)
 			return
 		}
 
 		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 		if err != nil {
+			log.Printf("Login attempt failed - password mismatch: username=%s", username)
 			respondWithError(w, r, "用户名或密码无效。", http.StatusUnauthorized)
 			return
 		}
@@ -214,6 +219,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		session.Values["role"] = user.Role
 		session.Save(r, w)
 
+		log.Printf("User logged in successfully: username=%s, role=%s, user_id=%d", user.Username, user.Role, user.ID)
 		respondWithSuccess(w, r, "登录成功！", "/")
 	}
 }
@@ -507,14 +513,18 @@ func ApplyHandler(w http.ResponseWriter, r *http.Request) {
 			expiresAt = &parsedTime
 		}
 
-		_, err = database.DB.Exec(`
+		result, err := database.DB.Exec(`
 			INSERT INTO applications (user_id, ip_address, port, reason, status, expires_at, default_rule_id, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			userID, ipAddress, port, reason, "pending", expiresAt, defaultRuleID, time.Now(), time.Now())
 		if err != nil {
+			log.Printf("Application submission failed for user_id=%d, ip=%s, port=%d: %v", userID, ipAddress, port, err)
 			respondWithError(w, r, "提交申请失败。", http.StatusInternalServerError)
 			return
 		}
+		
+		applicationID, _ := result.LastInsertId()
+		log.Printf("Application submitted successfully: application_id=%d, user_id=%d, ip=%s, port=%d, default_rule_id=%v", applicationID, userID, ipAddress, port, defaultRuleID)
 		respondWithSuccess(w, r, "申请提交成功！", "/")
 	}
 }
@@ -582,18 +592,22 @@ func ApproveHandler(w http.ResponseWriter, r *http.Request) {
 	var app models.Application
 	err = database.DB.QueryRow("SELECT ip_address, port FROM applications WHERE id = ?", appID).Scan(&app.IPAddress, &app.Port)
 	if err != nil {
+		log.Printf("Application approval failed - application not found: application_id=%d", appID)
 		respondWithError(w, r, "申请未找到。", http.StatusNotFound)
 		return
 	}
 
+	log.Printf("Approving application: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
 	err = executeIPTablesCommand("-A", app.IPAddress, strconv.Itoa(app.Port))
 	if err != nil {
+		log.Printf("iptables command failed for approval: application_id=%d, ip=%s, port=%d, error=%v", appID, app.IPAddress, app.Port, err)
 		updateApplicationStatus(appID, "execution_failed", "")
 		respondWithError(w, r, fmt.Sprintf("应用iptables规则失败: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	updateApplicationStatus(appID, "approved", "")
+	log.Printf("Application approved successfully: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
 	respondWithSuccess(w, r, "申请已批准！", "/")
 }
 
@@ -631,15 +645,18 @@ func RetryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Try to execute iptables command again
+	log.Printf("Retrying application approval: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
 	err = executeIPTablesCommand("-A", app.IPAddress, strconv.Itoa(app.Port))
 	if err != nil {
 		// Still failed, keep it in execution_failed status but return error
+		log.Printf("Application retry failed: application_id=%d, ip=%s, port=%d, error=%v", appID, app.IPAddress, app.Port, err)
 		respondWithError(w, r, fmt.Sprintf("重试失败: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	// Success, update status to approved
 	updateApplicationStatus(appID, "approved", "")
+	log.Printf("Application retry successful: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
 	respondWithSuccess(w, r, "重试成功，申请已批准！", "/")
 }
 
@@ -661,6 +678,7 @@ func RejectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updateApplicationStatus(appID, "rejected", reason)
+	log.Printf("Application rejected: application_id=%d, reason=%s", appID, reason)
 	respondWithSuccess(w, r, "申请已拒绝。", "/")
 }
 
@@ -679,17 +697,21 @@ func RemoveHandler(w http.ResponseWriter, r *http.Request) {
 	var app models.Application
 	err = database.DB.QueryRow("SELECT ip_address, port FROM applications WHERE id = ?", appID).Scan(&app.IPAddress, &app.Port)
 	if err != nil {
+		log.Printf("Application removal failed - application not found: application_id=%d", appID)
 		respondWithError(w, r, "申请未找到。", http.StatusNotFound)
 		return
 	}
 
+	log.Printf("Removing application rule: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
 	err = executeIPTablesCommand("-D", app.IPAddress, strconv.Itoa(app.Port))
 	if err != nil {
+		log.Printf("iptables removal command failed: application_id=%d, ip=%s, port=%d, error=%v", appID, app.IPAddress, app.Port, err)
 		respondWithError(w, r, fmt.Sprintf("移除iptables规则失败: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	updateApplicationStatus(appID, "removed", "")
+	log.Printf("Application rule removed successfully: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
 	respondWithSuccess(w, r, "规则已移除。", "/")
 }
 
@@ -740,6 +762,7 @@ func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return success message
+	log.Printf("Password reset successfully: admin_user=%s, target_user=%s", currentUser.Username, targetUser.Username)
 	message := fmt.Sprintf("用户 %s 的密码已重置为: %s", targetUser.Username, defaultPassword)
 	respondWithSuccess(w, r, message, "/admin/users")
 }
@@ -817,6 +840,7 @@ func updateApplicationStatus(appID int, status string, reason string) {
 
 func executeIPTablesCommand(action, ipAddress, port string) error {
 	// For approved applications, use high priority (INSERT at position 1)
+	log.Printf("Executing iptables command: action=%s, ip=%s, port=%s", action, ipAddress, port)
 	return ExecuteIPTablesCommandWithPriority(action, ipAddress, port, "ACCEPT", "approved")
 }
 
@@ -853,10 +877,13 @@ func ExecuteIPTablesCommandWithPriority(action, ipAddress, port, ruleAction, rul
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	
+	log.Printf("Running iptables command: %s", strings.Join(args, " "))
 	err := cmd.Run()
 	if err != nil {
+		log.Printf("iptables command failed: %s, stderr: %s", err.Error(), stderr.String())
 		return fmt.Errorf("iptables error: %s, details: %s", err, stderr.String())
 	}
+	log.Printf("iptables command executed successfully")
 	return nil
 }
 

@@ -6,7 +6,7 @@ config.json
 gatekeeper.db
 
 # Build artifacts
-gatekeeper_app
+#gatekeeper_app
 gatekeeper_build
 
 # Test coverage files

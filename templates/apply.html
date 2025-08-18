@@ -29,11 +29,40 @@
                 <h2>提交IP和端口以供审批。</h2>
             </hgroup>
             <form method="post">
-                <label for="ip_address">IP地址</label>
-                <input type="text" id="ip_address" name="ip_address" required pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$" title="请输入有效的IPv4地址。">
-                
-                <label for="port">端口</label>
-                <input type="number" id="port" name="port" value="{{.DefaultPort}}" required min="1" max="65535">
+                {{if .DefaultRules}}
+                <fieldset>
+                    <legend>申请方式</legend>
+                    <label>
+                        <input type="radio" name="application_type" value="manual" checked onchange="toggleApplicationMode()">
+                        手动输入 IP 和端口
+                    </label>
+                    <label>
+                        <input type="radio" name="application_type" value="default_rule" onchange="toggleApplicationMode()">
+                        选择预定义规则
+                    </label>
+                </fieldset>
+
+                <div id="default-rule-section" style="display: none;">
+                    <label for="default_rule_id">选择默认规则</label>
+                    <select id="default_rule_id" name="default_rule_id" onchange="populateFromRule()">
+                        <option value="">-- 选择规则 --</option>
+                        {{range .DefaultRules}}
+                        <option value="{{.ID}}" data-port="{{.Port}}" data-ip="{{.IPPattern}}" data-desc="{{.Description}}">
+                            {{.Name}} (端口: {{.Port}}{{if .IPPattern}}, IP: {{.IPPattern}}{{end}})
+                        </option>
+                        {{end}}
+                    </select>
+                    <small id="rule-description"></small>
+                </div>
+                {{end}}
+
+                <div id="manual-input-section">
+                    <label for="ip_address">IP地址</label>
+                    <input type="text" id="ip_address" name="ip_address" pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$" title="请输入有效的IPv4地址。">
+                    
+                    <label for="port">端口</label>
+                    <input type="number" id="port" name="port" value="{{.DefaultPort}}" min="1" max="65535">
+                </div>
                 
                 <label for="reason">原因</label>
                 <textarea id="reason" name="reason" required></textarea>
@@ -44,6 +73,57 @@
                 
                 <button type="submit">提交申请</button>
             </form>
+
+            <script>
+            function toggleApplicationMode() {
+                const isManual = document.querySelector('input[name="application_type"]:checked').value === 'manual';
+                const manualSection = document.getElementById('manual-input-section');
+                const defaultRuleSection = document.getElementById('default-rule-section');
+                
+                if (isManual) {
+                    manualSection.style.display = 'block';
+                    defaultRuleSection.style.display = 'none';
+                    document.getElementById('ip_address').setAttribute('required', '');
+                    document.getElementById('port').setAttribute('required', '');
+                    document.getElementById('default_rule_id').value = '';
+                } else {
+                    manualSection.style.display = 'none';
+                    defaultRuleSection.style.display = 'block';
+                    document.getElementById('ip_address').removeAttribute('required');
+                    document.getElementById('port').removeAttribute('required');
+                }
+            }
+
+            function populateFromRule() {
+                const select = document.getElementById('default_rule_id');
+                const selectedOption = select.options[select.selectedIndex];
+                const descElement = document.getElementById('rule-description');
+                
+                if (selectedOption.value) {
+                    const port = selectedOption.getAttribute('data-port');
+                    const ip = selectedOption.getAttribute('data-ip');
+                    const desc = selectedOption.getAttribute('data-desc');
+                    
+                    document.getElementById('port').value = port;
+                    if (ip) {
+                        document.getElementById('ip_address').value = ip;
+                        document.getElementById('ip_address').setAttribute('readonly', '');
+                    } else {
+                        document.getElementById('ip_address').value = '';
+                        document.getElementById('ip_address').removeAttribute('readonly');
+                        document.getElementById('ip_address').setAttribute('required', '');
+                    }
+                    
+                    descElement.textContent = desc || '';
+                } else {
+                    document.getElementById('port').value = '{{.DefaultPort}}';
+                    document.getElementById('ip_address').value = '';
+                    document.getElementById('ip_address').removeAttribute('readonly');
+                    document.getElementById('ip_address').setAttribute('required', '');
+                    descElement.textContent = '';
+                }
+            }
+            </script>
         </article>
     </main>
 </body>

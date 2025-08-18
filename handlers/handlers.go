@@ -311,11 +311,19 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 
 	isApprover := role == "approver"
 
-	var pendingApplications []models.Application
+	// Enhanced application structure for dashboard with default rule info
+	type ApplicationWithRule struct {
+		models.Application
+		RuleName *string
+	}
+
+	var pendingApplications []ApplicationWithRule
 	if isApprover {
 		rows, err := database.DB.Query(`
-			SELECT a.id, a.ip_address, a.port, a.reason, a.status, a.expires_at, a.created_at, u.username
-			FROM applications a JOIN users u ON a.user_id = u.id
+			SELECT a.id, a.ip_address, a.port, a.reason, a.status, a.expires_at, a.created_at, a.default_rule_id, u.username, d.name
+			FROM applications a 
+			JOIN users u ON a.user_id = u.id
+			LEFT JOIN default_rules d ON a.default_rule_id = d.id
 			WHERE a.status IN ('pending', 'execution_failed') ORDER BY a.created_at DESC`)
 		if err != nil {
 			http.Error(w, "Database error.", http.StatusInternalServerError)
@@ -323,8 +331,8 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var app models.Application
-			if err := rows.Scan(&app.ID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.Username); err != nil {
+			var app ApplicationWithRule
+			if err := rows.Scan(&app.ID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.DefaultRuleID, &app.Username, &app.RuleName); err != nil {
 				http.Error(w, "Database error.", http.StatusInternalServerError)
 				return
 			}
@@ -333,18 +341,20 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	myRows, err := database.DB.Query(`
-		SELECT id, ip_address, port, reason, status, expires_at, created_at
-		FROM applications WHERE user_id = ? ORDER BY created_at DESC`, userID)
+		SELECT a.id, a.ip_address, a.port, a.reason, a.status, a.expires_at, a.created_at, a.default_rule_id, d.name
+		FROM applications a 
+		LEFT JOIN default_rules d ON a.default_rule_id = d.id
+		WHERE a.user_id = ? ORDER BY a.created_at DESC`, userID)
 	if err != nil {
 		http.Error(w, "Database error.", http.StatusInternalServerError)
 		return
 	}
 	defer myRows.Close()
 
-	var myApplications []models.Application
+	var myApplications []ApplicationWithRule
 	for myRows.Next() {
-		var app models.Application
-		if err := myRows.Scan(&app.ID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt); err != nil {
+		var app ApplicationWithRule
+		if err := myRows.Scan(&app.ID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.DefaultRuleID, &app.RuleName); err != nil {
 			http.Error(w, "Database error.", http.StatusInternalServerError)
 			return
 		}
@@ -354,8 +364,8 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	data := struct {
 		Username            string
 		IsApprover          bool
-		PendingApplications []models.Application
-		MyApplications      []models.Application
+		PendingApplications []ApplicationWithRule
+		MyApplications      []ApplicationWithRule
 	}{
 		Username:            username,
 		IsApprover:          isApprover,
@@ -377,12 +387,22 @@ func ApplyHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Load default port from config/env
 	defaultPort := 8080
 
+	// Load enabled default rules for selection
+	defaultRules, err := database.GetEnabledDefaultRules()
+	if err != nil {
+		// Log error but continue - user can still apply manually
+		fmt.Printf("Warning: Failed to load default rules: %v\n", err)
+		defaultRules = []models.DefaultRule{}
+	}
+
 	data := struct {
-		IsApprover  bool
-		DefaultPort int
+		IsApprover   bool
+		DefaultPort  int
+		DefaultRules []models.DefaultRule
 	}{
-		IsApprover:  role == "approver",
-		DefaultPort: defaultPort,
+		IsApprover:   role == "approver",
+		DefaultPort:  defaultPort,
+		DefaultRules: defaultRules,
 	}
 
 	if r.Method == http.MethodGet {
@@ -395,15 +415,60 @@ func ApplyHandler(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			userID = 1 // default for testing
 		}
-		ipAddress := r.FormValue("ip_address")
-		portStr := r.FormValue("port")
+		
+		// Check if user selected a default rule or provided manual input
+		defaultRuleIDStr := r.FormValue("default_rule_id")
 		reason := r.FormValue("reason")
 		expiresAtStr := r.FormValue("expires_at")
-
-		port, err := strconv.Atoi(portStr)
-		if err != nil || port < 1 || port > 65535 {
-			respondWithError(w, r, "端口号无效。", http.StatusBadRequest)
-			return
+		
+		var ipAddress string
+		var port int
+		var defaultRuleID *int
+		var err error
+		
+		if defaultRuleIDStr != "" && defaultRuleIDStr != "0" {
+			// User selected a default rule
+			selectedRuleID, err := strconv.Atoi(defaultRuleIDStr)
+			if err != nil {
+				respondWithError(w, r, "无效的默认规则选择。", http.StatusBadRequest)
+				return
+			}
+			
+			// Get the default rule to extract IP pattern and port
+			selectedRule, err := database.GetDefaultRuleByID(selectedRuleID)
+			if err != nil {
+				respondWithError(w, r, "所选默认规则不存在。", http.StatusBadRequest)
+				return
+			}
+			
+			if !selectedRule.Enabled {
+				respondWithError(w, r, "所选默认规则已禁用。", http.StatusBadRequest)
+				return
+			}
+			
+			// Use values from the default rule
+			ipAddress = r.FormValue("ip_address") // User still needs to specify IP
+			if ipAddress == "" {
+				if selectedRule.IPPattern != "" {
+					ipAddress = selectedRule.IPPattern
+				} else {
+					respondWithError(w, r, "请提供IP地址。", http.StatusBadRequest)
+					return
+				}
+			}
+			port = selectedRule.Port
+			defaultRuleID = &selectedRuleID
+		} else {
+			// Manual application (traditional flow)
+			ipAddress = r.FormValue("ip_address")
+			portStr := r.FormValue("port")
+			
+			port, err = strconv.Atoi(portStr)
+			if err != nil || port < 1 || port > 65535 {
+				respondWithError(w, r, "端口号无效。", http.StatusBadRequest)
+				return
+			}
+			defaultRuleID = nil
 		}
 
 		// Validate IP address format and ranges
@@ -429,9 +494,9 @@ func ApplyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		_, err = database.DB.Exec(`
-			INSERT INTO applications (user_id, ip_address, port, reason, status, expires_at, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			userID, ipAddress, port, reason, "pending", expiresAt, time.Now(), time.Now())
+			INSERT INTO applications (user_id, ip_address, port, reason, status, expires_at, default_rule_id, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			userID, ipAddress, port, reason, "pending", expiresAt, defaultRuleID, time.Now(), time.Now())
 		if err != nil {
 			respondWithError(w, r, "提交申请失败。", http.StatusInternalServerError)
 			return

@@ -42,6 +42,7 @@
                         <th>申请人</th>
                         <th>IP地址</th>
                         <th>端口</th>
+                        <th>规则类型</th>
                         <th>原因</th>
                         <th>状态</th>
                         <th>有效期至</th>
@@ -55,6 +56,7 @@
                         <td>{{.Username}}</td>
                         <td>{{.IPAddress}}</td>
                         <td>{{.Port}}</td>
+                        <td>{{if .RuleName}}{{.RuleName}}{{else}}<em>手动</em>{{end}}</td>
                         <td>{{.Reason}}</td>
                         <td><span class="status-{{.Status}}">{{.Status}}</span></td>
                         <td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}永久{{end}}</td>
@@ -101,6 +103,7 @@
                     <tr>
                         <th>IP地址</th>
                         <th>端口</th>
+                        <th>规则类型</th>
                         <th>原因</th>
                         <th>状态</th>
                         <th>有效期至</th>
@@ -113,6 +116,7 @@
                     <tr>
                         <td>{{.IPAddress}}</td>
                         <td>{{.Port}}</td>
+                        <td>{{if .RuleName}}{{.RuleName}}{{else}}<em>手动</em>{{end}}</td>
                         <td>{{.Reason}}</td>
                         <td><span class="status-{{.Status}}">{{.Status}}</span></td>
                         <td>{{if .ExpiresAt}}{{.ExpiresAt.Format "2006-01-02 15:04"}}{{else}}永久{{end}}</td>

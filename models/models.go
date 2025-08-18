@@ -21,6 +21,7 @@ type Application struct {
 	Status          string    // "pending", "approved", "rejected", "execution_failed", "removed"
 	RejectionReason string
 	ExpiresAt       *time.Time // Optional expiration date for approved applications
+	DefaultRuleID   *int       // Optional reference to a default rule
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }

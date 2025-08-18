@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+// Helper function to create int pointer
+func intPtr(i int) *int {
+	return &i
+}
+
 func TestUserValidation(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -105,6 +110,38 @@ func TestApplicationValidation(t *testing.T) {
 				RejectionReason: "Security policy violation",
 				CreatedAt:       now,
 				UpdatedAt:       now,
+			},
+			expected: true,
+		},
+		{
+			name: "Valid application with default rule reference",
+			application: Application{
+				ID:            4,
+				UserID:        2,
+				Username:      "a12345",
+				IPAddress:     "10.0.0.100",
+				Port:          80,
+				Reason:        "Using predefined HTTP rule",
+				Status:        "pending",
+				DefaultRuleID: intPtr(1),
+				CreatedAt:     now,
+				UpdatedAt:     now,
+			},
+			expected: true,
+		},
+		{
+			name: "Valid application without default rule reference",
+			application: Application{
+				ID:            5,
+				UserID:        1,
+				Username:      "12345",
+				IPAddress:     "203.0.113.50",
+				Port:          9000,
+				Reason:        "Custom port access",
+				Status:        "pending",
+				DefaultRuleID: nil,
+				CreatedAt:     now,
+				UpdatedAt:     now,
 			},
 			expected: true,
 		},
@@ -329,5 +366,77 @@ func TestDefaultRuleFields(t *testing.T) {
 	}
 	if rule.Description != "Test description" {
 		t.Errorf("Expected description 'Test description', got %s", rule.Description)
+	}
+}
+
+func TestApplicationWithDefaultRule(t *testing.T) {
+	now := time.Now()
+	
+	tests := []struct {
+		name                    string
+		application            Application
+		shouldHaveDefaultRule  bool
+	}{
+		{
+			name: "Application created from default rule",
+			application: Application{
+				ID:            1,
+				UserID:        1,
+				Username:      "12345",
+				IPAddress:     "192.168.1.100",
+				Port:          80,
+				Reason:        "Using HTTP default rule",
+				Status:        "pending",
+				DefaultRuleID: intPtr(1),
+				CreatedAt:     now,
+				UpdatedAt:     now,
+			},
+			shouldHaveDefaultRule: true,
+		},
+		{
+			name: "Application created manually",
+			application: Application{
+				ID:            2,
+				UserID:        1,
+				Username:      "12345",
+				IPAddress:     "192.168.1.200",
+				Port:          9000,
+				Reason:        "Custom application",
+				Status:        "pending",
+				DefaultRuleID: nil,
+				CreatedAt:     now,
+				UpdatedAt:     now,
+			},
+			shouldHaveDefaultRule: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := tt.application
+			
+			if tt.shouldHaveDefaultRule {
+				if app.DefaultRuleID == nil {
+					t.Error("Expected application to have a default rule reference")
+				} else if *app.DefaultRuleID <= 0 {
+					t.Error("Default rule ID should be positive")
+				}
+			} else {
+				if app.DefaultRuleID != nil {
+					t.Error("Expected application to not have a default rule reference")
+				}
+			}
+			
+			// Verify other fields are still valid
+			if app.IPAddress == "" {
+				t.Error("IP address should not be empty")
+			}
+			if app.Port <= 0 || app.Port > 65535 {
+				t.Error("Port should be between 1 and 65535")
+			}
+			if app.Reason == "" {
+				t.Error("Reason should not be empty")
+			}
+		})
 	}
 }

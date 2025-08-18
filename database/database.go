@@ -85,8 +85,8 @@ func createTables() {
 }
 
 func migrateDatabase() {
-	// Check if expires_at column exists
-	var columnExists bool
+	// Check which columns exist
+	var expiresAtExists, defaultRuleIdExists bool
 	rows, err := DB.Query("PRAGMA table_info(applications)")
 	if err != nil {
 		log.Printf("Warning: Could not check table info: %v", err)
@@ -106,18 +106,30 @@ func migrateDatabase() {
 		}
 		
 		if name == "expires_at" {
-			columnExists = true
-			break
+			expiresAtExists = true
+		}
+		if name == "default_rule_id" {
+			defaultRuleIdExists = true
 		}
 	}
 	
 	// Add expires_at column if it doesn't exist
-	if !columnExists {
+	if !expiresAtExists {
 		_, err := DB.Exec("ALTER TABLE applications ADD COLUMN expires_at DATETIME")
 		if err != nil {
 			log.Printf("Warning: Could not add expires_at column: %v", err)
 		} else {
 			log.Println("Added expires_at column to applications table")
+		}
+	}
+	
+	// Add default_rule_id column if it doesn't exist
+	if !defaultRuleIdExists {
+		_, err := DB.Exec("ALTER TABLE applications ADD COLUMN default_rule_id INTEGER REFERENCES default_rules(id)")
+		if err != nil {
+			log.Printf("Warning: Could not add default_rule_id column: %v", err)
+		} else {
+			log.Println("Added default_rule_id column to applications table")
 		}
 	}
 }

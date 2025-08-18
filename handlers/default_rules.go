@@ -69,7 +69,7 @@ func AddDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Validate and extract form data
 	name := strings.TrimSpace(r.FormValue("name"))
-	ipPattern := strings.TrimSpace(r.FormValue("ip_pattern"))
+	ipPattern := "" // 默认限制所有IP
 	portStr := strings.TrimSpace(r.FormValue("port"))
 	action := strings.TrimSpace(r.FormValue("action"))
 	enabledStr := r.FormValue("enabled")
@@ -171,7 +171,7 @@ func UpdateDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Validate and extract form data
 	name := strings.TrimSpace(r.FormValue("name"))
-	ipPattern := strings.TrimSpace(r.FormValue("ip_pattern"))
+	ipPattern := "" // 默认限制所有IP
 	portStr := strings.TrimSpace(r.FormValue("port"))
 	action := strings.TrimSpace(r.FormValue("action"))
 	enabledStr := r.FormValue("enabled")

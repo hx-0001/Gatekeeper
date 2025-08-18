@@ -67,10 +67,6 @@
                         <input type="text" name="name" id="name" required placeholder="例：禁止SSH">
                     </div>
                     <div>
-                        <label for="ip_pattern">IP模式</label>
-                        <input type="text" name="ip_pattern" id="ip_pattern" placeholder="留空表示所有IP，或输入CIDR">
-                    </div>
-                    <div>
                         <label for="port">端口 *</label>
                         <input type="number" name="port" id="port" required min="1" max="65535" placeholder="22">
                     </div>
@@ -109,7 +105,6 @@
                 <thead>
                     <tr>
                         <th>名称</th>
-                        <th>IP模式</th>
                         <th>端口</th>
                         <th>动作</th>
                         <th>状态</th>
@@ -122,13 +117,6 @@
                     {{range .Rules}}
                     <tr id="rule-{{.ID}}">
                         <td><strong>{{.Name}}</strong></td>
-                        <td>
-                            {{if .IPPattern}}
-                                {{.IPPattern}}
-                            {{else}}
-                                <em>所有IP</em>
-                            {{end}}
-                        </td>
                         <td>{{.Port}}</td>
                         <td>
                             {{if eq .Action "ACCEPT"}}
@@ -156,17 +144,13 @@
                         </td>
                     </tr>
                     <tr id="edit-form-{{.ID}}" class="edit-form">
-                        <td colspan="8">
+                        <td colspan="7">
                             <form action="/admin/default-rules/update" method="POST">
                                 <input type="hidden" name="id" value="{{.ID}}">
                                 <div class="form-row">
                                     <div>
                                         <label>规则名称</label>
                                         <input type="text" name="name" value="{{.Name}}" required>
-                                    </div>
-                                    <div>
-                                        <label>IP模式</label>
-                                        <input type="text" name="ip_pattern" value="{{.IPPattern}}" placeholder="留空表示所有IP">
                                     </div>
                                     <div>
                                         <label>端口</label>

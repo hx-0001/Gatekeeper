@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"database/sql"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"gatekeeper/config"
@@ -24,22 +25,35 @@ var store *sessions.CookieStore
 var templates *template.Template
 var appConfig *config.Config
 
-// InitHandlers initializes handlers with configuration
-func InitHandlers(cfg *config.Config) {
+// InitHandlers initializes handlers with configuration and embedded templates
+func InitHandlers(cfg *config.Config, templateFiles embed.FS) {
 	appConfig = cfg
 	
 	// Initialize session store with configured secret key
 	store = sessions.NewCookieStore([]byte(cfg.Session.SecretKey))
 	
-	// Initialize templates with configured directory
-	templatesPath := filepath.Join(cfg.Templates.Directory, cfg.Templates.Pattern)
-	tmpl, err := template.ParseGlob(templatesPath)
-	if err != nil {
-		// Create a dummy template for testing
-		templates = template.New("dummy")
-		templates.Parse(`<html><body>{{.}}</body></html>`)
+	// Initialize templates based on configuration
+	if cfg.Templates.UseEmbedded {
+		// Use embedded templates
+		tmpl, err := template.ParseFS(templateFiles, "templates/*.html")
+		if err != nil {
+			// Create a dummy template for testing
+			templates = template.New("dummy")
+			templates.Parse(`<html><body>{{.}}</body></html>`)
+		} else {
+			templates = tmpl
+		}
 	} else {
-		templates = tmpl
+		// Use filesystem templates
+		templatesPath := filepath.Join(cfg.Templates.Directory, cfg.Templates.Pattern)
+		tmpl, err := template.ParseGlob(templatesPath)
+		if err != nil {
+			// Create a dummy template for testing
+			templates = template.New("dummy")
+			templates.Parse(`<html><body>{{.}}</body></html>`)
+		} else {
+			templates = tmpl
+		}
 	}
 }
 
@@ -51,16 +65,9 @@ func ensureConfig() *config.Config {
 			store = sessions.NewCookieStore([]byte(appConfig.Session.SecretKey))
 		}
 		if templates == nil {
-			// Initialize templates with configured directory
-			templatesPath := filepath.Join(appConfig.Templates.Directory, appConfig.Templates.Pattern)
-			tmpl, err := template.ParseGlob(templatesPath)
-			if err != nil {
-				// Create a dummy template for testing
-				templates = template.New("dummy")
-				templates.Parse(`<html><body>{{.}}</body></html>`)
-			} else {
-				templates = tmpl
-			}
+			// Create a dummy template for testing (embedded templates should be initialized via InitHandlers)
+			templates = template.New("dummy")
+			templates.Parse(`<html><body>{{.}}</body></html>`)
 		}
 	}
 	return appConfig

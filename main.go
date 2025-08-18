@@ -1,13 +1,21 @@
 package main
 
 import (
+	"embed"
 	"flag"
 	"gatekeeper/config"
 	"gatekeeper/database"
 	"gatekeeper/handlers"
+	"io/fs"
 	"log"
 	"net/http"
 )
+
+//go:embed static
+var staticFiles embed.FS
+
+//go:embed templates
+var templateFiles embed.FS
 
 func main() {
 	// Parse command line flags
@@ -24,8 +32,8 @@ func main() {
 	// Initialize database
 	database.InitDB(cfg.Database.Path)
 
-	// Initialize handlers with configuration
-	handlers.InitHandlers(cfg)
+	// Initialize handlers with configuration and embedded files
+	handlers.InitHandlers(cfg, templateFiles)
 
 	// Start expiration cleanup service
 	handlers.StartExpirationCleanupService()
@@ -60,14 +68,30 @@ func main() {
 	http.HandleFunc("/admin/default-rules/delete", handlers.AuthMiddleware(handlers.ApproverMiddleware(handlers.DeleteDefaultRuleHandler)))
 	http.HandleFunc("/api/default-rules", handlers.AuthMiddleware(handlers.ApproverMiddleware(handlers.DefaultRulesAPIHandler)))
 
-	// Serve static files
-	fs := http.FileServer(http.Dir(cfg.Server.StaticDir))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	// Serve static files (embedded or filesystem)
+	if cfg.Server.UseEmbedded {
+		staticFS, err := fs.Sub(staticFiles, "static")
+		if err != nil {
+			log.Fatalf("Failed to create static file system: %v", err)
+		}
+		http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+	} else {
+		fileServer := http.FileServer(http.Dir(cfg.Server.StaticDir))
+		http.Handle("/static/", http.StripPrefix("/static/", fileServer))
+	}
 
 	log.Printf("Starting server on %s", cfg.Server.Port)
 	log.Printf("Database: %s", cfg.Database.Path)
-	log.Printf("Static files: %s", cfg.Server.StaticDir)
-	log.Printf("Templates: %s/%s", cfg.Templates.Directory, cfg.Templates.Pattern)
+	if cfg.Server.UseEmbedded {
+		log.Printf("Static files: embedded")
+	} else {
+		log.Printf("Static files: %s", cfg.Server.StaticDir)
+	}
+	if cfg.Templates.UseEmbedded {
+		log.Printf("Templates: embedded")
+	} else {
+		log.Printf("Templates: %s/%s", cfg.Templates.Directory, cfg.Templates.Pattern)
+	}
 	
 	if err := http.ListenAndServe(cfg.Server.Port, nil); err != nil {
 		log.Fatalf("could not start server: %s\n", err)

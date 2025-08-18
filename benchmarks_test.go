@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
 	"gatekeeper/config"
 	"gatekeeper/database"
@@ -189,7 +190,7 @@ func BenchmarkLoginHandler(b *testing.B) {
 	defer database.DB.Close()
 	
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 	
 	// Create test user
 	testutils.CreateTestUser("12345", "password123", "applicant")
@@ -222,7 +223,7 @@ func BenchmarkRegisterHandler(b *testing.B) {
 	defer database.DB.Close()
 	
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 	
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -254,7 +255,7 @@ func BenchmarkDashboardHandler(b *testing.B) {
 	defer database.DB.Close()
 	
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 	
 	// Create test user and applications
 	userID, _ := testutils.CreateTestUser("12345", "password", "applicant")
@@ -341,7 +342,7 @@ func BenchmarkConfigLoading(b *testing.B) {
 
 func BenchmarkSessionOperations(b *testing.B) {
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 	
 	b.Run("SessionCreation", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
@@ -390,7 +391,7 @@ func BenchmarkConcurrentUserRegistration(b *testing.B) {
 	defer database.DB.Close()
 	
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 	
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {

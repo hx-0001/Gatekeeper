@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"gatekeeper/config"
 	"gatekeeper/database"
@@ -64,7 +65,7 @@ func TestNetworkAndExternalDependencies(t *testing.T) {
 		cfg.Templates.Directory = "/nonexistent/templates"
 		
 		// This should handle missing templates gracefully
-		handlers.InitHandlers(cfg)
+		handlers.InitHandlers(cfg, embed.FS{})
 		
 		req, _ := http.NewRequest("GET", "/login", nil)
 		rr := httptest.NewRecorder()
@@ -121,7 +122,7 @@ func TestConcurrencyAndRaceConditions(t *testing.T) {
 	defer database.DB.Close()
 
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	t.Run("ConcurrentUserRegistration", func(t *testing.T) {
 		// Test concurrent registration of users with same username
@@ -249,7 +250,7 @@ func TestLargeDataHandling(t *testing.T) {
 	defer database.DB.Close()
 
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	t.Run("LargeNumberOfUsers", func(t *testing.T) {
 		// Create many users
@@ -344,7 +345,7 @@ func TestMemoryAndResourceLimits(t *testing.T) {
 		// In production, you'd use more sophisticated memory profiling
 		
 		config.AppConfig = config.GetConfig()
-		handlers.InitHandlers(config.AppConfig)
+		handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 		userID, _ := testutils.CreateTestUser("77777", "password", "applicant")
 		
@@ -402,7 +403,7 @@ func TestErrorRecovery(t *testing.T) {
 	defer database.DB.Close()
 
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	t.Run("PanicRecovery", func(t *testing.T) {
 		// Test that handlers don't crash on unexpected input
@@ -479,7 +480,7 @@ func TestBoundaryConditions(t *testing.T) {
 	defer database.DB.Close()
 
 	config.AppConfig = config.GetConfig()
-	handlers.InitHandlers(config.AppConfig)
+	handlers.InitHandlers(config.AppConfig, embed.FS{})
 
 	t.Run("PortBoundaries", func(t *testing.T) {
 		userID, _ := testutils.CreateTestUser("66666", "password", "applicant")

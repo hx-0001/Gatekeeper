@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"gatekeeper/config"
 	"gatekeeper/database"
 	"gatekeeper/handlers"
@@ -20,7 +21,7 @@ func TestDefaultRulesIntegration(t *testing.T) {
 	cfg := config.GetConfig()
 
 	// Initialize handlers
-	handlers.InitHandlers(cfg)
+	handlers.InitHandlers(cfg, embed.FS{})
 
 	t.Log("=== Step 1: Verify database table creation ===")
 	

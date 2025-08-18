@@ -119,11 +119,15 @@ func UpdateDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse form data
-	err := r.ParseForm()
+	// Parse form data (handle both multipart and URL-encoded forms)
+	err := r.ParseMultipartForm(32 << 20) // 32MB limit
 	if err != nil {
-		respondWithError(w, r, "解析表单数据失败", http.StatusBadRequest)
-		return
+		// Fallback to regular form parsing for URL-encoded forms
+		err = r.ParseForm()
+		if err != nil {
+			respondWithError(w, r, "解析表单数据失败", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Get rule ID
@@ -241,11 +245,15 @@ func DeleteDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse form data
-	err := r.ParseForm()
+	// Parse form data (handle both multipart and URL-encoded forms)
+	err := r.ParseMultipartForm(32 << 20) // 32MB limit
 	if err != nil {
-		respondWithError(w, r, "解析表单数据失败", http.StatusBadRequest)
-		return
+		// Fallback to regular form parsing for URL-encoded forms
+		err = r.ParseForm()
+		if err != nil {
+			respondWithError(w, r, "解析表单数据失败", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Get rule ID
@@ -312,11 +320,12 @@ func DefaultRulesAPIHandler(w http.ResponseWriter, r *http.Request) {
 // applyDefaultRuleToIPTables applies or removes a default rule to/from iptables
 func applyDefaultRuleToIPTables(rule models.DefaultRule, operation string) error {
 	var action string
-	if operation == "add" {
+	switch operation {
+	case "add":
 		action = "-A" // Append for default rules (low priority)
-	} else if operation == "remove" {
+	case "remove":
 		action = "-D" // Delete
-	} else {
+	default:
 		return fmt.Errorf("invalid operation: %s", operation)
 	}
 

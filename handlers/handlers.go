@@ -830,12 +830,9 @@ func StartExpirationCleanupService() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				if err := CleanupExpiredApplications(); err != nil {
-					fmt.Printf("Error during cleanup: %v\n", err)
-				}
+		for range ticker.C {
+			if err := CleanupExpiredApplications(); err != nil {
+				fmt.Printf("Error during cleanup: %v\n", err)
 			}
 		}
 	}()

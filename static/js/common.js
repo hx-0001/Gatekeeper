@@ -100,11 +100,21 @@ function setupFormErrorHandling() {
     document.addEventListener('submit', function(e) {
         const form = e.target;
         
-        // Skip forms that explicitly want default behavior
-        if (form.dataset.skipAjax === 'true') {
+        // Ensure we're dealing with a form element
+        if (form.tagName !== 'FORM') {
+            console.log('Submit event not from a form element:', form.tagName);
             return;
         }
         
+        console.log('Form submission intercepted:', form.action, form.method);
+        
+        // Skip forms that explicitly want default behavior
+        if (form.dataset.skipAjax === 'true') {
+            console.log('Skipping AJAX for form with data-skip-ajax=true');
+            return;
+        }
+        
+        console.log('Preventing default form submission, using AJAX instead');
         e.preventDefault();
         
         const formData = new FormData(form);
@@ -117,7 +127,10 @@ function setupFormErrorHandling() {
             submitButton.textContent = '提交中...';
         }
         
-        fetch(form.action || window.location.pathname, {
+        // Use getAttribute to get the actual action attribute, not the property
+        const actionUrl = form.getAttribute('action') || window.location.pathname;
+        console.log('Sending AJAX request to:', actionUrl);
+        fetch(actionUrl, {
             method: form.method || 'POST',
             body: formData,
             headers: {
@@ -179,5 +192,6 @@ function setupFormErrorHandling() {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up form error handling');
     setupFormErrorHandling();
 });

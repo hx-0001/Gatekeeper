@@ -37,11 +37,15 @@ func AddDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse form data
-	err := r.ParseForm()
+	// Parse form data (support both application/x-www-form-urlencoded and multipart/form-data)
+	err := r.ParseMultipartForm(32 << 20) // 32 MB max memory
 	if err != nil {
-		respondWithError(w, r, "解析表单数据失败", http.StatusBadRequest)
-		return
+		// Fallback to regular form parsing for non-multipart forms
+		err = r.ParseForm()
+		if err != nil {
+			respondWithError(w, r, "解析表单数据失败", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Validate and extract form data

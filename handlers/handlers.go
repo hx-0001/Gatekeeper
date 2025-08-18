@@ -447,14 +447,10 @@ func ApplyHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			
 			// Use values from the default rule
-			ipAddress = r.FormValue("ip_address") // User still needs to specify IP
+			ipAddress = r.FormValue("ip_address") // User must specify IP address
 			if ipAddress == "" {
-				if selectedRule.IPPattern != "" {
-					ipAddress = selectedRule.IPPattern
-				} else {
-					respondWithError(w, r, "请提供IP地址。", http.StatusBadRequest)
-					return
-				}
+				respondWithError(w, r, "请提供IP地址。", http.StatusBadRequest)
+				return
 			}
 			port = selectedRule.Port
 			defaultRuleID = &selectedRuleID

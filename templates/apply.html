@@ -47,8 +47,8 @@
                     <select id="default_rule_id" name="default_rule_id" onchange="populateFromRule()">
                         <option value="">-- 选择规则 --</option>
                         {{range .DefaultRules}}
-                        <option value="{{.ID}}" data-port="{{.Port}}" data-ip="{{.IPPattern}}" data-desc="{{.Description}}">
-                            {{.Name}} (端口: {{.Port}}{{if .IPPattern}}, IP: {{.IPPattern}}{{end}})
+                        <option value="{{.ID}}" data-port="{{.Port}}" data-desc="{{.Description}}">
+                            {{.Name}} (端口: {{.Port}}, 限制所有IP)
                         </option>
                         {{end}}
                     </select>
@@ -56,10 +56,11 @@
                 </div>
                 {{end}}
 
-                <div id="manual-input-section">
-                    <label for="ip_address">IP地址</label>
-                    <input type="text" id="ip_address" name="ip_address" pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$" title="请输入有效的IPv4地址。">
-                    
+                <!-- IP地址输入框始终显示 -->
+                <label for="ip_address">IP地址</label>
+                <input type="text" id="ip_address" name="ip_address" pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$" title="请输入有效的IPv4地址。" required>
+
+                <div id="manual-port-section">
                     <label for="port">端口</label>
                     <input type="number" id="port" name="port" value="{{.DefaultPort}}" min="1" max="65535">
                 </div>
@@ -77,20 +78,23 @@
             <script>
             function toggleApplicationMode() {
                 const isManual = document.querySelector('input[name="application_type"]:checked').value === 'manual';
-                const manualSection = document.getElementById('manual-input-section');
+                const manualPortSection = document.getElementById('manual-port-section');
                 const defaultRuleSection = document.getElementById('default-rule-section');
                 
                 if (isManual) {
-                    manualSection.style.display = 'block';
+                    manualPortSection.style.display = 'block';
                     defaultRuleSection.style.display = 'none';
-                    document.getElementById('ip_address').setAttribute('required', '');
                     document.getElementById('port').setAttribute('required', '');
                     document.getElementById('default_rule_id').value = '';
+                    // 清空端口和IP，让用户手动输入
+                    document.getElementById('port').value = '{{.DefaultPort}}';
+                    document.getElementById('ip_address').value = '';
                 } else {
-                    manualSection.style.display = 'none';
+                    manualPortSection.style.display = 'none';
                     defaultRuleSection.style.display = 'block';
-                    document.getElementById('ip_address').removeAttribute('required');
                     document.getElementById('port').removeAttribute('required');
+                    // IP地址仍然必须输入
+                    document.getElementById('ip_address').value = '';
                 }
             }
 
@@ -101,25 +105,16 @@
                 
                 if (selectedOption.value) {
                     const port = selectedOption.getAttribute('data-port');
-                    const ip = selectedOption.getAttribute('data-ip');
                     const desc = selectedOption.getAttribute('data-desc');
                     
                     document.getElementById('port').value = port;
-                    if (ip) {
-                        document.getElementById('ip_address').value = ip;
-                        document.getElementById('ip_address').setAttribute('readonly', '');
-                    } else {
-                        document.getElementById('ip_address').value = '';
-                        document.getElementById('ip_address').removeAttribute('readonly');
-                        document.getElementById('ip_address').setAttribute('required', '');
-                    }
+                    document.getElementById('ip_address').value = '';
+                    document.getElementById('ip_address').focus(); // 聚焦到IP输入框
                     
                     descElement.textContent = desc || '';
                 } else {
-                    document.getElementById('port').value = '{{.DefaultPort}}';
+                    document.getElementById('port').value = '';
                     document.getElementById('ip_address').value = '';
-                    document.getElementById('ip_address').removeAttribute('readonly');
-                    document.getElementById('ip_address').setAttribute('required', '');
                     descElement.textContent = '';
                 }
             }

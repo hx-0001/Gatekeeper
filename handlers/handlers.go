@@ -416,56 +416,46 @@ func ApplyHandler(w http.ResponseWriter, r *http.Request) {
 			userID = 1 // default for testing
 		}
 		
-		// Check if user selected a default rule or provided manual input
+		// Process default rule based application only
 		defaultRuleIDStr := r.FormValue("default_rule_id")
 		reason := r.FormValue("reason")
 		expiresAtStr := r.FormValue("expires_at")
 		
-		var ipAddress string
-		var port int
-		var defaultRuleID *int
-		var err error
-		
-		if defaultRuleIDStr != "" && defaultRuleIDStr != "0" {
-			// User selected a default rule
-			selectedRuleID, err := strconv.Atoi(defaultRuleIDStr)
-			if err != nil {
-				respondWithError(w, r, "无效的默认规则选择。", http.StatusBadRequest)
-				return
-			}
-			
-			// Get the default rule to extract IP pattern and port
-			selectedRule, err := database.GetDefaultRuleByID(selectedRuleID)
-			if err != nil {
-				respondWithError(w, r, "所选默认规则不存在。", http.StatusBadRequest)
-				return
-			}
-			
-			if !selectedRule.Enabled {
-				respondWithError(w, r, "所选默认规则已禁用。", http.StatusBadRequest)
-				return
-			}
-			
-			// Use values from the default rule
-			ipAddress = r.FormValue("ip_address") // User must specify IP address
-			if ipAddress == "" {
-				respondWithError(w, r, "请提供IP地址。", http.StatusBadRequest)
-				return
-			}
-			port = selectedRule.Port
-			defaultRuleID = &selectedRuleID
-		} else {
-			// Manual application (traditional flow)
-			ipAddress = r.FormValue("ip_address")
-			portStr := r.FormValue("port")
-			
-			port, err = strconv.Atoi(portStr)
-			if err != nil || port < 1 || port > 65535 {
-				respondWithError(w, r, "端口号无效。", http.StatusBadRequest)
-				return
-			}
-			defaultRuleID = nil
+		// Validate default rule selection is required
+		if defaultRuleIDStr == "" || defaultRuleIDStr == "0" {
+			respondWithError(w, r, "请选择一个预定义规则。", http.StatusBadRequest)
+			return
 		}
+		
+		// Parse and validate default rule
+		selectedRuleID, err := strconv.Atoi(defaultRuleIDStr)
+		if err != nil {
+			respondWithError(w, r, "无效的默认规则选择。", http.StatusBadRequest)
+			return
+		}
+		
+		// Get the default rule to extract port
+		selectedRule, err := database.GetDefaultRuleByID(selectedRuleID)
+		if err != nil {
+			respondWithError(w, r, "所选默认规则不存在。", http.StatusBadRequest)
+			return
+		}
+		
+		if !selectedRule.Enabled {
+			respondWithError(w, r, "所选默认规则已禁用。", http.StatusBadRequest)
+			return
+		}
+		
+		// Get user provided IP address
+		ipAddress := r.FormValue("ip_address")
+		if ipAddress == "" {
+			respondWithError(w, r, "请提供IP地址。", http.StatusBadRequest)
+			return
+		}
+		
+		// Use port from selected rule
+		port := selectedRule.Port
+		defaultRuleID := &selectedRuleID
 
 		// Validate IP address format and ranges
 		if !isValidIPv4(ipAddress) {

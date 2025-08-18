@@ -73,18 +73,20 @@ var AppConfig *Config
 func LoadConfig(configPath string) error {
 	// Set default config if file doesn't exist
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Printf("Config file %s not found, using defaults", configPath)
+		log.Printf("INFO: Config file %s not found, using defaults", configPath)
 		AppConfig = getDefaultConfig()
 		return nil
 	}
 
 	data, err := ioutil.ReadFile(configPath)
 	if err != nil {
+		log.Printf("ERROR: Failed to read config file %s: %v", configPath, err)
 		return fmt.Errorf("failed to read config file: %v", err)
 	}
 
 	config := &Config{}
 	if err := json.Unmarshal(data, config); err != nil {
+		log.Printf("ERROR: Failed to parse config file %s: %v", configPath, err)
 		return fmt.Errorf("failed to parse config file: %v", err)
 	}
 
@@ -92,7 +94,7 @@ func LoadConfig(configPath string) error {
 	validateAndSetDefaults(config)
 	
 	AppConfig = config
-	log.Printf("Configuration loaded from %s", configPath)
+	log.Printf("INFO: Configuration loaded successfully from %s", configPath)
 	return nil
 }
 
@@ -214,15 +216,17 @@ func SaveConfig(configPath string) error {
 	
 	data, err := json.MarshalIndent(AppConfig, "", "  ")
 	if err != nil {
+		log.Printf("ERROR: Failed to marshal config: %v", err)
 		return fmt.Errorf("failed to marshal config: %v", err)
 	}
 	
 	err = ioutil.WriteFile(configPath, data, 0644)
 	if err != nil {
+		log.Printf("ERROR: Failed to write config file %s: %v", configPath, err)
 		return fmt.Errorf("failed to write config file: %v", err)
 	}
 	
-	log.Printf("Configuration saved to %s", configPath)
+	log.Printf("INFO: Configuration saved to %s", configPath)
 	return nil
 }
 

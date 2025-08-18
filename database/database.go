@@ -19,15 +19,19 @@ func InitDB(dataSourceName string) {
 	// Get current configuration
 	dbConfig = config.GetConfig()
 	
+	log.Printf("INFO: Initializing database with path: %s", dataSourceName)
 	var err error
 	DB, err = sql.Open(dbConfig.Database.Driver, dataSourceName)
 	if err != nil {
+		log.Printf("ERROR: Failed to open database connection - driver: %s, path: %s, error: %v", dbConfig.Database.Driver, dataSourceName, err)
 		log.Fatalf("Error opening database: %v", err)
 	}
 
 	if err = DB.Ping(); err != nil {
+		log.Printf("ERROR: Failed to ping database - path: %s, error: %v", dataSourceName, err)
 		log.Fatalf("Error pinging database: %v", err)
 	}
+	log.Printf("INFO: Database connection established successfully")
 
 	createTables()
 	migrateDatabase()
@@ -72,14 +76,17 @@ func createTables() {
 	);`
 
 	if _, err := DB.Exec(usersTable); err != nil {
+		log.Printf("ERROR: Failed to create users table: %v", err)
 		log.Fatalf("Could not create users table: %v", err)
 	}
 
 	if _, err := DB.Exec(applicationsTable); err != nil {
+		log.Printf("ERROR: Failed to create applications table: %v", err)
 		log.Fatalf("Could not create applications table: %v", err)
 	}
 
 	if _, err := DB.Exec(defaultRulesTable); err != nil {
+		log.Printf("ERROR: Failed to create default_rules table: %v", err)
 		log.Fatalf("Could not create default_rules table: %v", err)
 	}
 }
@@ -117,9 +124,9 @@ func migrateDatabase() {
 	if !expiresAtExists {
 		_, err := DB.Exec("ALTER TABLE applications ADD COLUMN expires_at DATETIME")
 		if err != nil {
-			log.Printf("Warning: Could not add expires_at column: %v", err)
+			log.Printf("WARNING: Could not add expires_at column: %v", err)
 		} else {
-			log.Println("Added expires_at column to applications table")
+			log.Printf("INFO: Added expires_at column to applications table")
 		}
 	}
 	
@@ -127,9 +134,9 @@ func migrateDatabase() {
 	if !defaultRuleIdExists {
 		_, err := DB.Exec("ALTER TABLE applications ADD COLUMN default_rule_id INTEGER REFERENCES default_rules(id)")
 		if err != nil {
-			log.Printf("Warning: Could not add default_rule_id column: %v", err)
+			log.Printf("WARNING: Could not add default_rule_id column: %v", err)
 		} else {
-			log.Println("Added default_rule_id column to applications table")
+			log.Printf("INFO: Added default_rule_id column to applications table")
 		}
 	}
 	
@@ -163,16 +170,16 @@ func migrateDatabase() {
 		// Add approval_response column
 		_, err := DB.Exec("ALTER TABLE default_rules ADD COLUMN approval_response TEXT")
 		if err != nil {
-			log.Printf("Warning: Could not add approval_response column: %v", err)
+			log.Printf("WARNING: Could not add approval_response column: %v", err)
 		} else {
-			log.Println("Added approval_response column to default_rules table")
+			log.Printf("INFO: Added approval_response column to default_rules table")
 			
 			// Copy data from description to approval_response
 			_, err = DB.Exec("UPDATE default_rules SET approval_response = description WHERE description IS NOT NULL")
 			if err != nil {
-				log.Printf("Warning: Could not migrate description data: %v", err)
+				log.Printf("WARNING: Could not migrate description data: %v", err)
 			} else {
-				log.Println("Migrated description data to approval_response column")
+				log.Printf("INFO: Migrated description data to approval_response column")
 			}
 		}
 	}
@@ -211,8 +218,10 @@ func initAdminUser() {
 
 // GetAllUsers retrieves all users from the database
 func GetAllUsers() ([]models.User, error) {
+	log.Printf("INFO: Retrieving all users from database")
 	rows, err := DB.Query("SELECT id, username, role FROM users ORDER BY id")
 	if err != nil {
+		log.Printf("ERROR: Failed to query all users: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -222,34 +231,50 @@ func GetAllUsers() ([]models.User, error) {
 		var user models.User
 		err := rows.Scan(&user.ID, &user.Username, &user.Role)
 		if err != nil {
+			log.Printf("ERROR: Failed to scan user row: %v", err)
 			return nil, err
 		}
 		users = append(users, user)
 	}
 
+	log.Printf("INFO: Retrieved %d users from database", len(users))
 	return users, nil
 }
 
 // ResetPassword resets a user's password to a default value
 func ResetPassword(userID int, defaultPassword string) error {
+	log.Printf("INFO: Resetting password for user_id=%d", userID)
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)
 	if err != nil {
+		log.Printf("ERROR: Failed to hash password for user_id=%d: %v", userID, err)
 		return err
 	}
 
 	_, err = DB.Exec("UPDATE users SET password = ? WHERE id = ?", string(hashedPassword), userID)
+	if err != nil {
+		log.Printf("ERROR: Failed to update password for user_id=%d: %v", userID, err)
+	} else {
+		log.Printf("INFO: Password reset successfully for user_id=%d", userID)
+	}
 	return err
 }
 
 // GetUserByID retrieves a user by ID
 func GetUserByID(userID int) (models.User, error) {
+	log.Printf("INFO: Retrieving user by ID: %d", userID)
 	var user models.User
 	err := DB.QueryRow("SELECT id, username, role FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Username, &user.Role)
+	if err != nil {
+		log.Printf("ERROR: Failed to get user by ID=%d: %v", userID, err)
+	} else {
+		log.Printf("INFO: Retrieved user: id=%d, username=%s, role=%s", user.ID, user.Username, user.Role)
+	}
 	return user, err
 }
 
 // GetExpiredApplications retrieves all approved applications that have expired
 func GetExpiredApplications() ([]models.Application, error) {
+	log.Printf("INFO: Checking for expired applications")
 	query := `
 		SELECT id, user_id, ip_address, port, reason, status, expires_at, created_at, updated_at
 		FROM applications 
@@ -258,6 +283,7 @@ func GetExpiredApplications() ([]models.Application, error) {
 	
 	rows, err := DB.Query(query, time.Now())
 	if err != nil {
+		log.Printf("ERROR: Failed to query expired applications: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -267,17 +293,25 @@ func GetExpiredApplications() ([]models.Application, error) {
 		var app models.Application
 		err := rows.Scan(&app.ID, &app.UserID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.UpdatedAt)
 		if err != nil {
+			log.Printf("ERROR: Failed to scan expired application row: %v", err)
 			return nil, err
 		}
 		applications = append(applications, app)
 	}
 
+	log.Printf("INFO: Found %d expired applications", len(applications))
 	return applications, nil
 }
 
 // MarkApplicationExpired marks an application as expired and removes it from the firewall
 func MarkApplicationExpired(appID int) error {
+	log.Printf("INFO: Marking application as expired: application_id=%d", appID)
 	_, err := DB.Exec("UPDATE applications SET status = 'expired', updated_at = ? WHERE id = ?", time.Now(), appID)
+	if err != nil {
+		log.Printf("ERROR: Failed to mark application as expired: application_id=%d, error=%v", appID, err)
+	} else {
+		log.Printf("INFO: Application marked as expired successfully: application_id=%d", appID)
+	}
 	return err
 }
 
@@ -351,6 +385,7 @@ func GetDefaultRuleByID(id int) (models.DefaultRule, error) {
 
 // CreateDefaultRule creates a new default rule
 func CreateDefaultRule(rule models.DefaultRule) (int64, error) {
+	log.Printf("INFO: Creating default rule: name=%s, port=%d, action=%s, enabled=%t", rule.Name, rule.Port, rule.Action, rule.Enabled)
 	query := `
 		INSERT INTO default_rules (name, ip_pattern, port, action, enabled, approval_response, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -359,10 +394,17 @@ func CreateDefaultRule(rule models.DefaultRule) (int64, error) {
 	result, err := DB.Exec(query, rule.Name, rule.IPPattern, rule.Port, rule.Action,
 		rule.Enabled, rule.ApprovalResponse, now, now)
 	if err != nil {
+		log.Printf("ERROR: Failed to create default rule: name=%s, port=%d, error=%v", rule.Name, rule.Port, err)
 		return 0, err
 	}
 	
-	return result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		log.Printf("ERROR: Failed to get last insert ID for default rule: %v", err)
+	} else {
+		log.Printf("INFO: Default rule created successfully: id=%d, name=%s", id, rule.Name)
+	}
+	return id, err
 }
 
 // UpdateDefaultRule updates an existing default rule

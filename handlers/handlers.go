@@ -481,13 +481,11 @@ func AdminUsersHandler(w http.ResponseWriter, r *http.Request) {
 		SuccessMessage:  successMessage,
 	}
 
-	tmpl, err := template.ParseFiles("templates/admin_users.html")
+	err = templates.ExecuteTemplate(w, "admin_users.html", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	tmpl.Execute(w, data)
 }
 
 func ApproveHandler(w http.ResponseWriter, r *http.Request) {

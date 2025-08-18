@@ -406,8 +406,8 @@ func applyDefaultRuleToIPTables(rule models.DefaultRule, operation string) error
 	}
 
 	if operation == "remove" {
-		// For removal, use the comprehensive cleanup function
-		return removeAllMatchingRules(rule.IPPattern, strconv.Itoa(rule.Port), rule.Action)
+		// For removal, only remove one instance to avoid affecting other rules with same port
+		return removeSingleMatchingRule(rule.IPPattern, strconv.Itoa(rule.Port), rule.Action)
 	}
 
 	// Build iptables command arguments
@@ -639,8 +639,16 @@ func removeIPTablesRuleByLineNumber(lineNumber int) error {
 	return nil
 }
 
+// removeSingleMatchingRule removes only one instance of an iptables rule that matches the given pattern
+// This prevents accidentally removing other rules with the same port
+func removeSingleMatchingRule(ipPattern, port, action string) error {
+	// Use the standard iptables -D command which removes only the first match
+	return executeDefaultRuleIPTablesCommand("-D", ipPattern, port, action)
+}
+
 // removeAllMatchingRules removes all iptables rules that match the given pattern
 // This is more thorough than single -D command which only removes the first match
+// Note: This function should only be used for cleanup operations, not for deleting specific rules
 func removeAllMatchingRules(ipPattern, port, action string) error {
 	maxAttempts := 10 // Prevent infinite loops
 	

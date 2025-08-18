@@ -45,8 +45,10 @@
         <ul>
             <li><a href="/">仪表盘</a></li>
             <li><a href="/apply">申请白名单</a></li>
+            {{if .IsApprover}}
             <li><a href="/admin/users">用户管理</a></li>
-            <li><a href="/admin/default-rules">默认规则</a></li>
+            <li><a href="/admin/default-rules" class="secondary">默认规则</a></li>
+            {{end}}
             <li><a href="/change-password">修改密码</a></li>
             <li><a href="/logout">登出</a></li>
         </ul>
@@ -145,7 +147,7 @@
                         <td>{{.Description}}</td>
                         <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
                         <td>
-                            <button class="btn-small" onclick="toggleEditForm({{.ID}})">编辑</button>
+                            <button class="btn-small" onclick="toggleEditForm('{{.ID}}')">编辑</button>
                             <form style="display: inline;" action="/admin/default-rules/delete" method="POST" 
                                   onsubmit="return confirm('确定要删除规则 {{.Name}} 吗？')">
                                 <input type="hidden" name="id" value="{{.ID}}">
@@ -188,7 +190,7 @@
                                     </div>
                                     <div>
                                         <button type="submit">保存</button>
-                                        <button type="button" onclick="toggleEditForm({{.ID}})">取消</button>
+                                        <button type="button" onclick="toggleEditForm('{{.ID}}')">取消</button>
                                     </div>
                                 </div>
                                 <div>

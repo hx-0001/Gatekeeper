@@ -13,6 +13,21 @@ import (
 // DefaultRulesHandler handles the default rules management page
 func DefaultRulesHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
+		// Get current user information from session
+		cfg := ensureConfig()
+		session, _ := store.Get(r, cfg.Session.Name)
+		username, ok := session.Values["username"].(string)
+		if !ok {
+			respondWithError(w, r, "未登录", http.StatusUnauthorized)
+			return
+		}
+
+		role, ok := session.Values["role"].(string)
+		if !ok {
+			respondWithError(w, r, "用户角色信息缺失", http.StatusUnauthorized)
+			return
+		}
+
 		// Get all default rules from database
 		rules, err := database.GetAllDefaultRules()
 		if err != nil {
@@ -21,9 +36,13 @@ func DefaultRulesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data := struct {
-			Rules []models.DefaultRule
+			Rules       []models.DefaultRule
+			IsApprover  bool
+			Username    string
 		}{
-			Rules: rules,
+			Rules:      rules,
+			IsApprover: role == "approver",
+			Username:   username,
 		}
 
 		templates.ExecuteTemplate(w, "default_rules.html", data)

@@ -390,10 +390,8 @@ func DefaultRulesAPIHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // applyDefaultRuleToIPTables applies or removes a default rule to/from iptables
+// Note: This function should be called within mutex protection from the caller
 func applyDefaultRuleToIPTables(rule models.DefaultRule, operation string) error {
-	// Use mutex to protect concurrent access
-	defaultRulesMutex.Lock()
-	defer defaultRulesMutex.Unlock()
 	
 	var action string
 	switch operation {
@@ -432,10 +430,6 @@ func applyDefaultRuleToIPTables(rule models.DefaultRule, operation string) error
 // LoadDefaultRulesAtStartup loads and applies all enabled default rules at application startup
 // This function implements idempotent rule loading to prevent duplicates
 func LoadDefaultRulesAtStartup() error {
-	// Use mutex to prevent concurrent modifications during startup
-	defaultRulesMutex.Lock()
-	defer defaultRulesMutex.Unlock()
-	
 	logger.Info("Starting default rules synchronization...")
 	
 	rules, err := database.GetEnabledDefaultRules()

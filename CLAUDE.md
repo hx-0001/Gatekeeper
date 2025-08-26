@@ -88,18 +88,22 @@ The application now supports configuration files:
 
 **Database:**
 - SQLite database (`gatekeeper.db`)
-- Two main tables: `users` and `applications`
+- Main tables: `users`, `applications`, `default_rules`
 - Application statuses: "pending", "approved", "rejected", "execution_failed", "removed"
+- Default rules support global firewall policies with configurable priority
 
 **Security Features:**
 - bcrypt password hashing
 - Username validation (5 digits or 1 letter + 5 digits)
 - SQL injection protection via prepared statements
 - Session management with secure cookies
+- Default firewall rules with priority system
 
 ### Critical Security Context
 
-This application requires sudo privileges to execute iptables commands for firewall management. The handlers execute system commands via `os/exec` to modify iptables rules when applications are approved.
+This application requires sudo privileges to execute iptables commands for firewall management. The handlers execute system commands via `os/exec` to modify iptables rules when applications are approved or when managing default firewall rules. The system implements a two-tier priority system:
+- High priority: Approved application rules (inserted at front with `iptables -I`)  
+- Low priority: Default global rules (appended with `iptables -A`)
 
 **Default admin credentials:**
 - Username: `admin`  
@@ -111,12 +115,14 @@ This application requires sudo privileges to execute iptables commands for firew
 - `README.md` - Comprehensive project documentation including configuration and testing
 - `requirement.md` - Original project requirements
 - `config.example.json` - Configuration file template
+- `demo_default_rules.md` - Documentation for default rules functionality
 
 ## Development Notes
 
 ### Database Schema
 - Users table: id, username, password (bcrypt), role
 - Applications table: id, user_id, ip_address, port, reason, status, rejection_reason, timestamps
+- Default_rules table: id, name, ip_pattern, port, action, enabled, description, timestamps
 
 ### Template System
 Uses Go's html/template package with templates in `templates/` directory. Templates are parsed globally at startup.
@@ -167,6 +173,8 @@ See README.md Testing section for detailed testing documentation and troubleshoo
 - Database operations use prepared statements for security
 - Authentication uses session-based middleware chains
 - Templates are pre-parsed at startup for performance
+- Embedded static files and templates using `go:embed` directives
+- Default rules are loaded asynchronously at startup to prevent blocking server start
 
 ### Go Version Requirements
 - Minimum: Go 1.23.0
@@ -240,3 +248,91 @@ sudo ./gatekeeper_app -config=dev-config.json
 - Use strong, random session secret keys in production
 - Consider higher bcrypt cost (14+) for production
 - Use absolute paths for production deployments
+
+# AI自我复盘改进规则框架
+
+## 目的
+当AI犯错或执行结果不满足用户预期，经修改后问题解决时，自我复盘总结经验规则，避免重复犯错。
+
+## 强制复盘要求
+**CRITICAL - 必须执行**: 每当完成重要任务后，特别是用户指出实现问题时，必须主动进行复盘：
+
+### 1. 任务完成强制检查
+- 所有复杂实现任务都必须添加最终todo项："任务复盘和改进规则评估"
+- 在标记任务完成前，必须验证是否完整满足用户需求
+- 不能仅完成部分功能就认为任务结束
+
+### 2. 错误学习强制触发
+当用户指出实现不符合预期时，必须立即询问：
+```
+📝 是否需要生成改进规则来避免类似错误？
+[Y] 生成规则文件
+[S] 仅显示内容  
+[N] 跳过
+```
+
+### 3. 强制复盘情况
+- 用户明确表示："你的任务完成得不符合预期"
+- 需要修复或重新实现大部分代码  
+- 实现不完整，遗漏重要部分
+- 涉及核心功能的多文件复杂更改
+- 用户指出了通用性问题（如"这是一个通用问题"）
+
+## 触发条件
+- AI代码被用户指出问题 or AI自我认为犯错 or AI执行任务不符合用户预期
+- 经过修改后问题已解决
+- 问题具有通用性
+
+## 规则模板
+
+```markdown
+# [问题类型] - RULE-{日期}-{序号}
+
+## 错误场景
+- **用户需求**: [需求描述]
+- **AI错误**: [错误实现]
+- **问题**: [具体问题表现]
+
+## 正确做法
+- **应该**: [正确做法]
+- **避免**: [错误做法]
+- **检查**: [关键检查点]
+
+## 代码示例
+### ❌ 错误
+```code
+[错误代码]
+```
+
+### ✅ 正确
+```code
+[正确代码]
+```
+```
+
+## 工作流程
+
+### 问题修复完成后提示
+```
+📝 是否生成改进规则？
+[Y] 生成规则文件
+[S] 仅显示内容  
+[N] 跳过
+
+选择: _
+```
+
+### 规则存储
+```
+.当前工具定义的规则目录名称/
+├── others/      # 项目特定
+└── temp/       # 临时规则
+```
+
+## 规则应用
+编码前AI应检查相关规则并声明：
+```
+已检查规则库，注意以下问题：
+- RULE-20250101-001: [问题描述]
+- RULE-20250105-002: [问题描述]
+```

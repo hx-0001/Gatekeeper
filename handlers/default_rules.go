@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"gatekeeper/database"
+	"gatekeeper/logger"
 	"gatekeeper/models"
-	"log"
 	"net/http"
 	"os/exec"
 	"strconv"
@@ -38,7 +38,7 @@ func DefaultRulesHandler(w http.ResponseWriter, r *http.Request) {
 		// Get all default rules from database
 		rules, err := database.GetAllDefaultRules()
 		if err != nil {
-			log.Printf("ERROR: Failed to get all default rules in DefaultRulesHandler: %v", err)
+			logger.Error("Failed to get all default rules in DefaultRulesHandler: %v", err)
 			respondWithError(w, r, fmt.Sprintf("获取默认规则失败: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -70,7 +70,7 @@ func AddDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 		// Fallback to regular form parsing for non-multipart forms
 		err = r.ParseForm()
 		if err != nil {
-			log.Printf("ERROR: Failed to parse form data in AddDefaultRuleHandler: %v", err)
+			logger.Error("Failed to parse form data in AddDefaultRuleHandler: %v", err)
 			respondWithError(w, r, "解析表单数据失败", http.StatusBadRequest)
 			return
 		}
@@ -119,10 +119,10 @@ func AddDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save to database
-	log.Printf("INFO: Creating new default rule: name=%s, port=%d, action=%s, enabled=%t", rule.Name, rule.Port, rule.Action, rule.Enabled)
+	logger.Info("Creating new default rule: name=%s, port=%d, action=%s, enabled=%t", rule.Name, rule.Port, rule.Action, rule.Enabled)
 	ruleID, err := database.CreateDefaultRule(rule)
 	if err != nil {
-		log.Printf("ERROR: Failed to create default rule in database: name=%s, port=%d, error=%v", rule.Name, rule.Port, err)
+		logger.Error("Failed to create default rule in database: name=%s, port=%d, error=%v", rule.Name, rule.Port, err)
 		respondWithError(w, r, fmt.Sprintf("创建默认规则失败: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -137,10 +137,10 @@ func AddDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 		if checkErr == nil && !exists {
 			err = applyDefaultRuleToIPTables(rule, "add")
 			if err != nil {
-				log.Printf("ERROR: Failed to apply default rule to iptables: name=%s, port=%d, error=%v", rule.Name, rule.Port, err)
+				logger.Error("Failed to apply default rule to iptables: name=%s, port=%d, error=%v", rule.Name, rule.Port, err)
 				// Delete the rule from database if iptables failed
 				database.DeleteDefaultRule(int(ruleID))
-				log.Printf("INFO: Cleaned up database rule after iptables failure: rule_id=%d", ruleID)
+				logger.Info("Cleaned up database rule after iptables failure: rule_id=%d", ruleID)
 				respondWithError(w, r, fmt.Sprintf("应用iptables规则失败: %v", err), http.StatusInternalServerError)
 				return
 			}
@@ -286,12 +286,12 @@ func UpdateDefaultRuleHandler(w http.ResponseWriter, r *http.Request) {
 			err = applyDefaultRuleToIPTables(updatedRule, "add")
 			if err != nil {
 				// Try to restore old rule
-				log.Printf("WARNING: Failed to add new rule, attempting to restore old rule: name=%s, port=%d", updatedRule.Name, updatedRule.Port)
+				logger.Warn("Failed to add new rule, attempting to restore old rule: name=%s, port=%d", updatedRule.Name, updatedRule.Port)
 				restoreErr := applyDefaultRuleToIPTables(oldRule, "add")
 				if restoreErr != nil {
-					log.Printf("ERROR: Failed to restore old rule after update failure: name=%s, port=%d, error=%v", oldRule.Name, oldRule.Port, restoreErr)
+					logger.Error("Failed to restore old rule after update failure: name=%s, port=%d, error=%v", oldRule.Name, oldRule.Port, restoreErr)
 				} else {
-					log.Printf("INFO: Successfully restored old rule after update failure: name=%s, port=%d", oldRule.Name, oldRule.Port)
+					logger.Info("Successfully restored old rule after update failure: name=%s, port=%d", oldRule.Name, oldRule.Port)
 				}
 				respondWithError(w, r, fmt.Sprintf("应用新iptables规则失败: %v", err), http.StatusInternalServerError)
 				return
@@ -436,7 +436,7 @@ func LoadDefaultRulesAtStartup() error {
 	defaultRulesMutex.Lock()
 	defer defaultRulesMutex.Unlock()
 	
-	log.Printf("INFO: Starting default rules synchronization...")
+	logger.Info("Starting default rules synchronization...")
 	
 	rules, err := database.GetEnabledDefaultRules()
 	if err != nil {
@@ -444,38 +444,38 @@ func LoadDefaultRulesAtStartup() error {
 	}
 
 	// Step 1: Clean up any duplicate rules that may exist
-	log.Printf("INFO: Cleaning up duplicate rules for %d enabled default rules...", len(rules))
+	logger.Info("Cleaning up duplicate rules for %d enabled default rules...", len(rules))
 	for _, rule := range rules {
 		err = cleanupDuplicateRules(rule.IPPattern, strconv.Itoa(rule.Port), rule.Action)
 		if err != nil {
-			log.Printf("WARNING: Failed to cleanup duplicates for rule %s: %v", rule.Name, err)
+			logger.Warn("Failed to cleanup duplicates for rule %s: %v", rule.Name, err)
 		}
 	}
 	
 	// Step 2: Check which rules are missing and add them
-	log.Printf("INFO: Verifying and adding missing rules...")
+	logger.Info("Verifying and adding missing rules...")
 	addedCount := 0
 	for _, rule := range rules {
 		exists, err := checkIfRuleExists(rule.IPPattern, strconv.Itoa(rule.Port), rule.Action)
 		if err != nil {
-			log.Printf("WARNING: Failed to check if rule exists for %s: %v", rule.Name, err)
+			logger.Warn("Failed to check if rule exists for %s: %v", rule.Name, err)
 			continue
 		}
 		
 		if !exists {
 			err = applyDefaultRuleToIPTables(rule, "add")
 			if err != nil {
-				log.Printf("WARNING: Failed to apply default rule %s: %v", rule.Name, err)
+				logger.Warn("Failed to apply default rule %s: %v", rule.Name, err)
 			} else {
-				log.Printf("INFO: Added missing rule: %s (port %d)", rule.Name, rule.Port)
+				logger.Info("Added missing rule: %s (port %d)", rule.Name, rule.Port)
 				addedCount++
 			}
 		} else {
-			log.Printf("INFO: Rule already exists: %s (port %d)", rule.Name, rule.Port)
+			logger.Info("Rule already exists: %s (port %d)", rule.Name, rule.Port)
 		}
 	}
 
-	log.Printf("INFO: Default rules synchronization complete: %d rules verified, %d added", len(rules), addedCount)
+	logger.Info("Default rules synchronization complete: %d rules verified, %d added", len(rules), addedCount)
 	return nil
 }
 
@@ -609,16 +609,16 @@ func cleanupDuplicateRules(ipPattern, port, action string) error {
 	// If we have more than one matching rule, remove the extras
 	// Keep the first rule and remove the duplicates (in reverse order to maintain line numbers)
 	if len(matchingLines) > 1 {
-		log.Printf("INFO: Found %d duplicate rules for port %s, cleaning up...", len(matchingLines), port)
+		logger.Info("Found %d duplicate rules for port %s, cleaning up...", len(matchingLines), port)
 		
 		// Remove duplicates in reverse order to maintain line numbers
 		for i := len(matchingLines) - 1; i > 0; i-- {
 			lineNum := matchingLines[i]
 			err := removeIPTablesRuleByLineNumber(lineNum)
 			if err != nil {
-				log.Printf("WARNING: Failed to remove duplicate rule at line %d: %v", lineNum, err)
+				logger.Warn("Failed to remove duplicate rule at line %d: %v", lineNum, err)
 			} else {
-				log.Printf("INFO: Removed duplicate rule at line %d for port %s", lineNum, port)
+				logger.Info("Removed duplicate rule at line %d for port %s", lineNum, port)
 			}
 		}
 	}
@@ -664,7 +664,7 @@ func removeAllMatchingRules(ipPattern, port, action string) error {
 			// If subsequent attempts fail, it's likely because no more rules exist
 			break
 		}
-		log.Printf("INFO: Removed matching rule (attempt %d) for %s:%s %s", attempt+1, ipPattern, port, action)
+		logger.Info("Removed matching rule (attempt %d) for %s:%s %s", attempt+1, ipPattern, port, action)
 	}
 	
 	return nil
@@ -690,7 +690,7 @@ func SyncDefaultRulesWithIPTables() error {
 	for _, rule := range allRules {
 		exists, err := checkIfRuleExists(rule.IPPattern, strconv.Itoa(rule.Port), rule.Action)
 		if err != nil {
-			log.Printf("WARNING: Failed to check rule existence for %s: %v", rule.Name, err)
+			logger.Warn("Failed to check rule existence for %s: %v", rule.Name, err)
 			continue
 		}
 		
@@ -698,18 +698,18 @@ func SyncDefaultRulesWithIPTables() error {
 			// Rule should exist but doesn't - add it
 			err = executeDefaultRuleIPTablesCommand("-A", rule.IPPattern, strconv.Itoa(rule.Port), rule.Action)
 			if err != nil {
-				log.Printf("WARNING: Failed to add missing rule %s: %v", rule.Name, err)
+				logger.Warn("Failed to add missing rule %s: %v", rule.Name, err)
 			} else {
-				log.Printf("INFO: Fixed: Added missing rule %s (port %d)", rule.Name, rule.Port)
+				logger.Info("Fixed: Added missing rule %s (port %d)", rule.Name, rule.Port)
 				fixedCount++
 			}
 		} else if !rule.Enabled && exists {
 			// Rule should not exist but does - remove it
 			err = removeAllMatchingRules(rule.IPPattern, strconv.Itoa(rule.Port), rule.Action)
 			if err != nil {
-				log.Printf("WARNING: Failed to remove unexpected rule %s: %v", rule.Name, err)
+				logger.Warn("Failed to remove unexpected rule %s: %v", rule.Name, err)
 			} else {
-				log.Printf("INFO: Fixed: Removed unexpected rule %s (port %d)", rule.Name, rule.Port)
+				logger.Info("Fixed: Removed unexpected rule %s (port %d)", rule.Name, rule.Port)
 				fixedCount++
 			}
 		} else {
@@ -721,6 +721,6 @@ func SyncDefaultRulesWithIPTables() error {
 		cleanupDuplicateRules(rule.IPPattern, strconv.Itoa(rule.Port), rule.Action)
 	}
 	
-	log.Printf("INFO: Synchronization complete: %d rules in sync, %d fixed", syncedCount, fixedCount)
+	logger.Info("Synchronization complete: %d rules in sync, %d fixed", syncedCount, fixedCount)
 	return nil
 }

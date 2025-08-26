@@ -6,6 +6,7 @@ import (
 	"gatekeeper/config"
 	"gatekeeper/database"
 	"gatekeeper/handlers"
+	"gatekeeper/logger"
 	"io/fs"
 	"log"
 	"net/http"
@@ -29,6 +30,9 @@ func main() {
 
 	cfg := config.GetConfig()
 	
+	// Initialize logger with configured log level
+	logger.SetLogLevel(cfg.Server.LogLevel)
+	
 	// Initialize database
 	database.InitDB(cfg.Database.Path)
 
@@ -40,7 +44,7 @@ func main() {
 
 	// Load default firewall rules at startup
 	if err := handlers.LoadDefaultRulesAtStartup(); err != nil {
-		log.Printf("Warning: Failed to load default rules: %v", err)
+		logger.Warn("Failed to load default rules: %v", err)
 	}
 
 	// Setup routes
@@ -80,20 +84,21 @@ func main() {
 		http.Handle("/static/", http.StripPrefix("/static/", fileServer))
 	}
 
-	log.Printf("Starting server on %s", cfg.Server.Port)
-	log.Printf("Database: %s", cfg.Database.Path)
+	logger.Info("Starting server on %s", cfg.Server.Port)
+	logger.Info("Database: %s", cfg.Database.Path)
+	logger.Info("Log level: %s", logger.GetLogLevel())
 	if cfg.Server.UseEmbedded {
-		log.Printf("Static files: embedded")
+		logger.Info("Static files: embedded")
 	} else {
-		log.Printf("Static files: %s", cfg.Server.StaticDir)
+		logger.Info("Static files: %s", cfg.Server.StaticDir)
 	}
 	if cfg.Templates.UseEmbedded {
-		log.Printf("Templates: embedded")
+		logger.Info("Templates: embedded")
 	} else {
-		log.Printf("Templates: %s/%s", cfg.Templates.Directory, cfg.Templates.Pattern)
+		logger.Info("Templates: %s/%s", cfg.Templates.Directory, cfg.Templates.Pattern)
 	}
 	
 	if err := http.ListenAndServe(cfg.Server.Port, nil); err != nil {
-		log.Fatalf("could not start server: %s\n", err)
+		logger.Fatal("could not start server: %s", err)
 	}
 }

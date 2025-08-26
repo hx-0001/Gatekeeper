@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"gatekeeper/config"
 	"gatekeeper/database"
+	"gatekeeper/logger"
 	"gatekeeper/models"
 	"html/template"
-	"log"
 	"net"
 	"net/http"
 	"os/exec"
@@ -48,12 +48,12 @@ func InitHandlers(cfg *config.Config, templateFiles embed.FS) {
 		// Use embedded templates
 		tmpl, err := template.ParseFS(templateFiles, "templates/*.html")
 		if err != nil {
-			log.Printf("WARNING: Failed to parse embedded templates, using dummy template: %v", err)
+			logger.Warn("Failed to parse embedded templates, using dummy template: %v", err)
 			// Create a dummy template for testing
 			templates = template.New("dummy")
 			templates.Parse(`<html><body>{{.}}</body></html>`)
 		} else {
-			log.Printf("INFO: Embedded templates loaded successfully")
+			logger.Info("Embedded templates loaded successfully")
 			templates = tmpl
 		}
 	} else {
@@ -61,12 +61,12 @@ func InitHandlers(cfg *config.Config, templateFiles embed.FS) {
 		templatesPath := filepath.Join(cfg.Templates.Directory, cfg.Templates.Pattern)
 		tmpl, err := template.ParseGlob(templatesPath)
 		if err != nil {
-			log.Printf("WARNING: Failed to parse filesystem templates from %s, using dummy template: %v", templatesPath, err)
+			logger.Warn("Failed to parse filesystem templates from %s, using dummy template: %v", templatesPath, err)
 			// Create a dummy template for testing
 			templates = template.New("dummy")
 			templates.Parse(`<html><body>{{.}}</body></html>`)
 		} else {
-			log.Printf("INFO: Filesystem templates loaded successfully from %s", templatesPath)
+			logger.Info("Filesystem templates loaded successfully from %s", templatesPath)
 			templates = tmpl
 		}
 	}
@@ -144,11 +144,11 @@ func respondWithSuccess(w http.ResponseWriter, r *http.Request, message string, 
 // --- User Handlers ---
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("INFO: Register handler called: method=%s, remote_addr=%s", r.Method, r.RemoteAddr)
+	logger.Info("Register handler called: method=%s, remote_addr=%s", r.Method, r.RemoteAddr)
 	if r.Method == http.MethodGet {
 		err := templates.ExecuteTemplate(w, "register.html", nil)
 		if err != nil {
-			log.Printf("ERROR: Failed to execute register template: %v", err)
+			logger.Error("Failed to execute register template: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
 		return
@@ -169,9 +169,9 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		err := database.DB.QueryRow("SELECT username FROM users WHERE username = ?", username).Scan(&existingUser.Username)
 		if err != sql.ErrNoRows {
 			if err == nil {
-				log.Printf("WARNING: Registration attempt with existing username: %s, remote_addr=%s", username, r.RemoteAddr)
+				logger.Warn("Registration attempt with existing username: %s, remote_addr=%s", username, r.RemoteAddr)
 			} else {
-				log.Printf("ERROR: Database error during username check: username=%s, error=%v", username, err)
+				logger.Error("Database error during username check: username=%s, error=%v", username, err)
 			}
 			respondWithError(w, r, "用户名已存在。", http.StatusBadRequest)
 			return
@@ -191,12 +191,12 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		
 		_, err = database.DB.Exec("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", username, string(hashedPassword), defaultRole)
 		if err != nil {
-			log.Printf("User registration failed for username %s: %v", username, err)
+			logger.Error("User registration failed for username %s: %v", username, err)
 			respondWithError(w, r, "服务器错误，无法创建您的账户。", http.StatusInternalServerError)
 			return
 		}
 
-		log.Printf("User registered successfully: username=%s, role=%s", username, defaultRole)
+		logger.Info("User registered successfully: username=%s, role=%s", username, defaultRole)
 		respondWithSuccess(w, r, "账户创建成功！", "/login")
 	}
 }
@@ -214,14 +214,14 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		var user models.User
 		err := database.DB.QueryRow("SELECT id, username, password, role FROM users WHERE username = ?", username).Scan(&user.ID, &user.Username, &user.Password, &user.Role)
 		if err != nil {
-			log.Printf("Login attempt failed - user not found: username=%s", username)
+			logger.Warn("Login attempt failed - user not found: username=%s", username)
 			respondWithError(w, r, "用户名或密码无效。", http.StatusUnauthorized)
 			return
 		}
 
 		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 		if err != nil {
-			log.Printf("Login attempt failed - password mismatch: username=%s", username)
+			logger.Warn("Login attempt failed - password mismatch: username=%s", username)
 			respondWithError(w, r, "用户名或密码无效。", http.StatusUnauthorized)
 			return
 		}
@@ -229,39 +229,39 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		cfg := ensureConfig()
 		session, err := store.Get(r, cfg.Session.Name)
 		if err != nil {
-			log.Printf("ERROR: Failed to get session during login: username=%s, error=%v", username, err)
+			logger.Error("Failed to get session during login: username=%s, error=%v", username, err)
 		}
 		session.Values["user_id"] = user.ID
 		session.Values["username"] = user.Username
 		session.Values["role"] = user.Role
 		err = session.Save(r, w)
 		if err != nil {
-			log.Printf("ERROR: Failed to save session during login: username=%s, error=%v", username, err)
+			logger.Error("Failed to save session during login: username=%s, error=%v", username, err)
 		}
 
-		log.Printf("User logged in successfully: username=%s, role=%s, user_id=%d", user.Username, user.Role, user.ID)
+		logger.Info("User logged in successfully: username=%s, role=%s, user_id=%d", user.Username, user.Role, user.ID)
 		respondWithSuccess(w, r, "登录成功！", "/")
 	}
 }
 
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("INFO: Logout handler called: remote_addr=%s", r.RemoteAddr)
+	logger.Info("Logout handler called: remote_addr=%s", r.RemoteAddr)
 	cfg := ensureConfig()
 	session, err := store.Get(r, cfg.Session.Name)
 	if err != nil {
-		log.Printf("ERROR: Failed to get session during logout: error=%v", err)
+		logger.Error("Failed to get session during logout: error=%v", err)
 	}
 	
 	// Log the user being logged out for audit purposes
 	if username, ok := session.Values["username"].(string); ok {
-		log.Printf("INFO: User logging out: username=%s, remote_addr=%s", username, r.RemoteAddr)
+		logger.Info("User logging out: username=%s, remote_addr=%s", username, r.RemoteAddr)
 	}
 	
 	session.Values["user_id"] = nil
 	session.Options.MaxAge = -1
 	err = session.Save(r, w)
 	if err != nil {
-		log.Printf("ERROR: Failed to save session during logout: error=%v", err)
+		logger.Error("Failed to save session during logout: error=%v", err)
 	}
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
@@ -304,32 +304,32 @@ func ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
 		var currentPasswordHash string
 		err := database.DB.QueryRow("SELECT password FROM users WHERE id = ?", userID).Scan(&currentPasswordHash)
 		if err != nil {
-			log.Printf("ERROR: Failed to get current password hash for user_id=%d: %v", userID, err)
+			logger.Error("Failed to get current password hash for user_id=%d: %v", userID, err)
 			respondWithError(w, r, "无法获取用户数据。", http.StatusInternalServerError)
 			return
 		}
 
 		err = bcrypt.CompareHashAndPassword([]byte(currentPasswordHash), []byte(oldPassword))
 		if err != nil {
-			log.Printf("WARNING: Incorrect old password attempt: user_id=%d, remote_addr=%s", userID, r.RemoteAddr)
+			logger.Warn("Incorrect old password attempt: user_id=%d, remote_addr=%s", userID, r.RemoteAddr)
 			respondWithError(w, r, "旧密码不正确。", http.StatusBadRequest)
 			return
 		}
 
 		newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 		if err != nil {
-			log.Printf("ERROR: Failed to hash new password for user_id=%d: %v", userID, err)
+			logger.Error("Failed to hash new password for user_id=%d: %v", userID, err)
 			respondWithError(w, r, "创建新密码时出错。", http.StatusInternalServerError)
 			return
 		}
 
 		_, err = database.DB.Exec("UPDATE users SET password = ? WHERE id = ?", string(newPasswordHash), userID)
 		if err != nil {
-			log.Printf("ERROR: Failed to update password for user_id=%d: %v", userID, err)
+			logger.Error("Failed to update password for user_id=%d: %v", userID, err)
 			respondWithError(w, r, "无法更新密码。", http.StatusInternalServerError)
 			return
 		}
-		log.Printf("INFO: Password changed successfully for user_id=%d", userID)
+		logger.Info("Password changed successfully for user_id=%d", userID)
 
 		respondWithSuccess(w, r, "密码更新成功！", "/change-password")
 	}
@@ -373,7 +373,7 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 			LEFT JOIN default_rules d ON a.default_rule_id = d.id
 			WHERE a.status IN ('pending', 'execution_failed') ORDER BY a.created_at DESC`)
 		if err != nil {
-			log.Printf("ERROR: Failed to query pending applications: %v", err)
+			logger.Error("Failed to query pending applications: %v", err)
 			http.Error(w, "Database error.", http.StatusInternalServerError)
 			return
 		}
@@ -381,7 +381,7 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		for rows.Next() {
 			var app ApplicationWithRule
 			if err := rows.Scan(&app.ID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, &app.ExpiresAt, &app.CreatedAt, &app.DefaultRuleID, &app.Username, &app.RuleName, &app.ApprovalResponse); err != nil {
-				log.Printf("ERROR: Failed to scan pending application row: %v", err)
+				logger.Error("Failed to scan pending application row: %v", err)
 				http.Error(w, "Database error.", http.StatusInternalServerError)
 				return
 			}
@@ -558,13 +558,13 @@ func ApplyHandler(w http.ResponseWriter, r *http.Request) {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			userID, ipAddress, port, reason, "pending", expiresAt, defaultRuleID, time.Now(), time.Now())
 		if err != nil {
-			log.Printf("Application submission failed for user_id=%d, ip=%s, port=%d: %v", userID, ipAddress, port, err)
+			logger.Error("Application submission failed for user_id=%d, ip=%s, port=%d: %v", userID, ipAddress, port, err)
 			respondWithError(w, r, "提交申请失败。", http.StatusInternalServerError)
 			return
 		}
 		
 		applicationID, _ := result.LastInsertId()
-		log.Printf("Application submitted successfully: application_id=%d, user_id=%d, ip=%s, port=%d, default_rule_id=%v", applicationID, userID, ipAddress, port, defaultRuleID)
+		logger.Info("Application submitted successfully: application_id=%d, user_id=%d, ip=%s, port=%d, default_rule_id=%v", applicationID, userID, ipAddress, port, defaultRuleID)
 		respondWithSuccess(w, r, "申请提交成功！", "/")
 	}
 }
@@ -581,14 +581,14 @@ func AdminUsersHandler(w http.ResponseWriter, r *http.Request) {
 	
 	user, err := database.GetUserByID(userID)
 	if err != nil {
-		log.Printf("ERROR: Failed to get user by ID=%d in AdminUsersHandler: %v", userID, err)
+		logger.Error("Failed to get user by ID=%d in AdminUsersHandler: %v", userID, err)
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
 	users, err := database.GetAllUsers()
 	if err != nil {
-		log.Printf("ERROR: Failed to get all users in AdminUsersHandler: %v", err)
+		logger.Error("Failed to get all users in AdminUsersHandler: %v", err)
 		http.Error(w, "Failed to get users", http.StatusInternalServerError)
 		return
 	}
@@ -634,22 +634,22 @@ func ApproveHandler(w http.ResponseWriter, r *http.Request) {
 	var app models.Application
 	err = database.DB.QueryRow("SELECT ip_address, port FROM applications WHERE id = ?", appID).Scan(&app.IPAddress, &app.Port)
 	if err != nil {
-		log.Printf("Application approval failed - application not found: application_id=%d", appID)
+		logger.Warn("Application approval failed - application not found: application_id=%d", appID)
 		respondWithError(w, r, "申请未找到。", http.StatusNotFound)
 		return
 	}
 
-	log.Printf("Approving application: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
+	logger.Info("Approving application: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
 	err = executeIPTablesCommand("-A", app.IPAddress, strconv.Itoa(app.Port))
 	if err != nil {
-		log.Printf("iptables command failed for approval: application_id=%d, ip=%s, port=%d, error=%v", appID, app.IPAddress, app.Port, err)
+		logger.Error("iptables command failed for approval: application_id=%d, ip=%s, port=%d, error=%v", appID, app.IPAddress, app.Port, err)
 		updateApplicationStatus(appID, "execution_failed", "")
 		respondWithError(w, r, fmt.Sprintf("应用iptables规则失败: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	updateApplicationStatus(appID, "approved", "")
-	log.Printf("Application approved successfully: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
+	logger.Info("Application approved successfully: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
 	respondWithSuccess(w, r, "申请已批准！", "/")
 }
 
@@ -687,18 +687,18 @@ func RetryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Try to execute iptables command again
-	log.Printf("Retrying application approval: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
+	logger.Info("Retrying application approval: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
 	err = executeIPTablesCommand("-A", app.IPAddress, strconv.Itoa(app.Port))
 	if err != nil {
 		// Still failed, keep it in execution_failed status but return error
-		log.Printf("Application retry failed: application_id=%d, ip=%s, port=%d, error=%v", appID, app.IPAddress, app.Port, err)
+		logger.Error("Application retry failed: application_id=%d, ip=%s, port=%d, error=%v", appID, app.IPAddress, app.Port, err)
 		respondWithError(w, r, fmt.Sprintf("重试失败: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	// Success, update status to approved
 	updateApplicationStatus(appID, "approved", "")
-	log.Printf("Application retry successful: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
+	logger.Info("Application retry successful: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
 	respondWithSuccess(w, r, "重试成功，申请已批准！", "/")
 }
 
@@ -720,7 +720,7 @@ func RejectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updateApplicationStatus(appID, "rejected", reason)
-	log.Printf("Application rejected: application_id=%d, reason=%s", appID, reason)
+	logger.Info("Application rejected: application_id=%d, reason=%s", appID, reason)
 	respondWithSuccess(w, r, "申请已拒绝。", "/")
 }
 
@@ -739,21 +739,21 @@ func RemoveHandler(w http.ResponseWriter, r *http.Request) {
 	var app models.Application
 	err = database.DB.QueryRow("SELECT ip_address, port FROM applications WHERE id = ?", appID).Scan(&app.IPAddress, &app.Port)
 	if err != nil {
-		log.Printf("Application removal failed - application not found: application_id=%d", appID)
+		logger.Warn("Application removal failed - application not found: application_id=%d", appID)
 		respondWithError(w, r, "申请未找到。", http.StatusNotFound)
 		return
 	}
 
-	log.Printf("Removing application rule: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
+	logger.Info("Removing application rule: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
 	err = executeIPTablesCommand("-D", app.IPAddress, strconv.Itoa(app.Port))
 	if err != nil {
-		log.Printf("iptables removal command failed: application_id=%d, ip=%s, port=%d, error=%v", appID, app.IPAddress, app.Port, err)
+		logger.Error("iptables removal command failed: application_id=%d, ip=%s, port=%d, error=%v", appID, app.IPAddress, app.Port, err)
 		respondWithError(w, r, fmt.Sprintf("移除iptables规则失败: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	updateApplicationStatus(appID, "removed", "")
-	log.Printf("Application rule removed successfully: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
+	logger.Info("Application rule removed successfully: application_id=%d, ip=%s, port=%d", appID, app.IPAddress, app.Port)
 	respondWithSuccess(w, r, "规则已移除。", "/")
 }
 
@@ -773,7 +773,7 @@ func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	// Get current user to verify they are an approver
 	currentUser, err := database.GetUserByID(currentUserID)
 	if err != nil {
-		log.Printf("ERROR: Failed to get current user by ID=%d in ResetPasswordHandler: %v", currentUserID, err)
+		logger.Error("Failed to get current user by ID=%d in ResetPasswordHandler: %v", currentUserID, err)
 		respondWithError(w, r, "当前用户未找到", http.StatusNotFound)
 		return
 	}
@@ -792,7 +792,7 @@ func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the user to be reset
 	targetUser, err := database.GetUserByID(userID)
 	if err != nil {
-		log.Printf("ERROR: Failed to get target user by ID=%d in ResetPasswordHandler: %v", userID, err)
+		logger.Error("Failed to get target user by ID=%d in ResetPasswordHandler: %v", userID, err)
 		respondWithError(w, r, "用户未找到", http.StatusNotFound)
 		return
 	}
@@ -801,13 +801,13 @@ func ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	defaultPassword := "changeme123"
 	err = database.ResetPassword(userID, defaultPassword)
 	if err != nil {
-		log.Printf("ERROR: Failed to reset password for user_id=%d: %v", userID, err)
+		logger.Error("Failed to reset password for user_id=%d: %v", userID, err)
 		respondWithError(w, r, "重置密码失败", http.StatusInternalServerError)
 		return
 	}
 
 	// Return success message
-	log.Printf("Password reset successfully: admin_user=%s, target_user=%s", currentUser.Username, targetUser.Username)
+	logger.Info("Password reset successfully: admin_user=%s, target_user=%s", currentUser.Username, targetUser.Username)
 	message := fmt.Sprintf("用户 %s 的密码已重置为: %s", targetUser.Username, defaultPassword)
 	respondWithSuccess(w, r, message, "/admin/users")
 }
@@ -819,12 +819,12 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		cfg := ensureConfig()
 		session, err := store.Get(r, cfg.Session.Name)
 		if err != nil {
-			log.Printf("WARNING: Failed to get session in AuthMiddleware: %v, remote_addr=%s", err, r.RemoteAddr)
+			logger.Warn("Failed to get session in AuthMiddleware: %v, remote_addr=%s", err, r.RemoteAddr)
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
 		if session.Values["user_id"] == nil {
-			log.Printf("INFO: Unauthenticated access attempt: path=%s, remote_addr=%s", r.URL.Path, r.RemoteAddr)
+			logger.Info("Unauthenticated access attempt: path=%s, remote_addr=%s", r.URL.Path, r.RemoteAddr)
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
@@ -837,21 +837,21 @@ func ApproverMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		cfg := ensureConfig()
 		session, err := store.Get(r, cfg.Session.Name)
 		if err != nil {
-			log.Printf("WARNING: Failed to get session in ApproverMiddleware: %v, remote_addr=%s", err, r.RemoteAddr)
+			logger.Warn("Failed to get session in ApproverMiddleware: %v, remote_addr=%s", err, r.RemoteAddr)
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
 		if session.Values["user_id"] == nil {
-			log.Printf("INFO: Unauthenticated access attempt to approver route: path=%s, remote_addr=%s", r.URL.Path, r.RemoteAddr)
+			logger.Info("Unauthenticated access attempt to approver route: path=%s, remote_addr=%s", r.URL.Path, r.RemoteAddr)
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
 		role, ok := session.Values["role"].(string)
 		if !ok || role != "approver" {
 			if username, hasUsername := session.Values["username"].(string); hasUsername {
-				log.Printf("WARNING: Unauthorized access attempt to approver route: username=%s, role=%v, path=%s, remote_addr=%s", username, role, r.URL.Path, r.RemoteAddr)
+				logger.Warn("Unauthorized access attempt to approver route: username=%s, role=%v, path=%s, remote_addr=%s", username, role, r.URL.Path, r.RemoteAddr)
 			} else {
-				log.Printf("WARNING: Unauthorized access attempt to approver route: unknown_user, role=%v, path=%s, remote_addr=%s", role, r.URL.Path, r.RemoteAddr)
+				logger.Warn("Unauthorized access attempt to approver route: unknown_user, role=%v, path=%s, remote_addr=%s", role, r.URL.Path, r.RemoteAddr)
 			}
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
@@ -902,7 +902,7 @@ func updateApplicationStatus(appID int, status string, reason string) {
 
 func executeIPTablesCommand(action, ipAddress, port string) error {
 	// For approved applications, use high priority (INSERT at position 1)
-	log.Printf("Executing iptables command: action=%s, ip=%s, port=%s", action, ipAddress, port)
+	logger.Info("Executing iptables command: action=%s, ip=%s, port=%s", action, ipAddress, port)
 	return ExecuteIPTablesCommandWithPriority(action, ipAddress, port, "ACCEPT", "approved")
 }
 
@@ -939,13 +939,13 @@ func ExecuteIPTablesCommandWithPriority(action, ipAddress, port, ruleAction, rul
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	
-	log.Printf("Running iptables command: %s", strings.Join(args, " "))
+	logger.Info("Running iptables command: %s", strings.Join(args, " "))
 	err := cmd.Run()
 	if err != nil {
-		log.Printf("iptables command failed: %s, stderr: %s", err.Error(), stderr.String())
+		logger.Error("iptables command failed: %s, stderr: %s", err.Error(), stderr.String())
 		return fmt.Errorf("iptables error: %s, details: %s", err, stderr.String())
 	}
-	log.Printf("iptables command executed successfully")
+	logger.Info("iptables command executed successfully")
 	return nil
 }
 
@@ -960,22 +960,22 @@ func CleanupExpiredApplications() error {
 		// Remove the iptables rule
 		err := executeIPTablesCommand("-D", app.IPAddress, strconv.Itoa(app.Port))
 		if err != nil {
-			log.Printf("WARNING: Failed to remove iptables rule during cleanup: ip=%s, port=%d, application_id=%d, error=%v", app.IPAddress, app.Port, app.ID, err)
+			logger.Warn("Failed to remove iptables rule during cleanup: ip=%s, port=%d, application_id=%d, error=%v", app.IPAddress, app.Port, app.ID, err)
 			// Continue with marking as expired even if iptables removal fails
 		}
 
 		// Mark the application as expired in the database
 		err = database.MarkApplicationExpired(app.ID)
 		if err != nil {
-			log.Printf("ERROR: Failed to mark application as expired: application_id=%d, error=%v", app.ID, err)
+			logger.Error("Failed to mark application as expired: application_id=%d, error=%v", app.ID, err)
 			continue
 		}
 
-		log.Printf("INFO: Expired application cleaned up successfully: ip=%s, port=%d, application_id=%d", app.IPAddress, app.Port, app.ID)
+		logger.Info("Expired application cleaned up successfully: ip=%s, port=%d, application_id=%d", app.IPAddress, app.Port, app.ID)
 	}
 
 	if len(expiredApps) > 0 {
-		log.Printf("INFO: Cleanup completed: %d expired applications processed", len(expiredApps))
+		logger.Info("Cleanup completed: %d expired applications processed", len(expiredApps))
 	}
 
 	return nil
@@ -986,7 +986,7 @@ func StartExpirationCleanupService() {
 	cfg := ensureConfig()
 	
 	if !cfg.Expiration.Enabled {
-		log.Printf("INFO: Expiration cleanup service is disabled in configuration")
+		logger.Info("Expiration cleanup service is disabled in configuration")
 		return
 	}
 
@@ -998,9 +998,9 @@ func StartExpirationCleanupService() {
 
 		for range ticker.C {
 			if err := CleanupExpiredApplications(); err != nil {
-				log.Printf("ERROR: Error during scheduled cleanup: %v", err)
+				logger.Error("Error during scheduled cleanup: %v", err)
 			}
 		}
 	}()
-	log.Printf("INFO: Expiration cleanup service started (checking every %d minutes)", cfg.Expiration.CleanupInterval)
+	logger.Info("Expiration cleanup service started (checking every %d minutes)", cfg.Expiration.CleanupInterval)
 }

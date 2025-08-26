@@ -42,14 +42,10 @@ func main() {
 	// Start expiration cleanup service
 	handlers.StartExpirationCleanupService()
 
-	// Load default firewall rules at startup
-	if err := handlers.LoadDefaultRulesAtStartup(); err != nil {
-		logger.Warn("Failed to load default rules: %v", err)
-	}
-
-	// Restore approved application firewall rules at startup
-	if err := handlers.LoadApprovedApplicationRulesAtStartup(); err != nil {
-		logger.Warn("Failed to restore approved application rules: %v", err)
+	// Synchronize all rules with database using unified "clear and rebuild" mechanism
+	if err := handlers.SynchronizeAllRulesWithDatabase(); err != nil {
+		logger.Error("Failed to synchronize rules with database: %v", err)
+		logger.Warn("Continuing startup despite rule synchronization failure")
 	}
 
 	// Setup routes

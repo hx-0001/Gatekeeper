@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/sessions"
@@ -1045,4 +1046,137 @@ func LoadApprovedApplicationRulesAtStartup() error {
 	}
 	
 	return nil
+}
+
+// Global mutex to protect rule synchronization operations
+var rulesSyncMutex sync.Mutex
+
+// SynchronizeAllRulesWithDatabase implements the "clear and rebuild" mechanism
+// This function ensures absolute consistency between database and iptables by:
+// 1. Clearing all Gatekeeper-managed rules from iptables
+// 2. Rebuilding rules based on database state
+// 3. Ensuring idempotent operation (safe to call multiple times)
+func SynchronizeAllRulesWithDatabase() error {
+	rulesSyncMutex.Lock()
+	defer rulesSyncMutex.Unlock()
+	
+	logger.Info("Starting complete rule synchronization with database...")
+	
+	// Step 1: Clear all Gatekeeper-managed rules from iptables
+	logger.Info("Step 1: Clearing all existing Gatekeeper rules...")
+	err := clearAllGatekeeperRules()
+	if err != nil {
+		logger.Error("Failed to clear existing rules: %v", err)
+		return fmt.Errorf("failed to clear existing rules: %v", err)
+	}
+	logger.Info("Successfully cleared all existing Gatekeeper rules")
+	
+	// Step 2: Load default rules from database and apply to iptables
+	logger.Info("Step 2: Applying enabled default rules...")
+	defaultRules, err := database.GetEnabledDefaultRules()
+	if err != nil {
+		logger.Error("Failed to get enabled default rules: %v", err)
+		return fmt.Errorf("failed to get enabled default rules: %v", err)
+	}
+	
+	defaultSuccessCount := 0
+	for _, rule := range defaultRules {
+		err := ExecuteIPTablesCommandWithPriority("-A", rule.IPPattern, strconv.Itoa(rule.Port), rule.Action, "default")
+		if err != nil {
+			logger.Warn("Failed to apply default rule %s: %v", rule.Name, err)
+		} else {
+			logger.Info("Applied default rule: %s (port %d)", rule.Name, rule.Port)
+			defaultSuccessCount++
+		}
+	}
+	
+	// Step 3: Load approved applications from database and apply to iptables
+	logger.Info("Step 3: Applying approved application rules...")
+	approvedApps, err := database.GetApprovedApplications()
+	if err != nil {
+		logger.Error("Failed to get approved applications: %v", err)
+		return fmt.Errorf("failed to get approved applications: %v", err)
+	}
+	
+	appSuccessCount := 0
+	for _, app := range approvedApps {
+		err := ExecuteIPTablesCommandWithPriority("-A", app.IPAddress, strconv.Itoa(app.Port), "ACCEPT", "approved")
+		if err != nil {
+			logger.Warn("Failed to apply application rule: application_id=%d, ip=%s, port=%d, error=%v", app.ID, app.IPAddress, app.Port, err)
+		} else {
+			logger.Info("Applied application rule: application_id=%d, ip=%s, port=%d", app.ID, app.IPAddress, app.Port)
+			appSuccessCount++
+		}
+	}
+	
+	logger.Info("Rule synchronization completed successfully: %d default rules applied, %d application rules applied", 
+		defaultSuccessCount, appSuccessCount)
+	return nil
+}
+
+// clearAllGatekeeperRules removes all iptables rules that were created by Gatekeeper
+// This function is conservative and only removes rules that match our specific patterns
+func clearAllGatekeeperRules() error {
+	logger.Info("Clearing all Gatekeeper-managed iptables rules...")
+	
+	// Get current rules to identify Gatekeeper-managed ones
+	currentRules, err := getCurrentIPTablesRulesForCleanup()
+	if err != nil {
+		return fmt.Errorf("failed to get current iptables rules: %v", err)
+	}
+	
+	// Count rules to remove
+	var linesToRemove []int
+	for _, rule := range currentRules {
+		// Only consider rules that match our patterns
+		if isGatekeeperRule(rule) {
+			// Extract line number (first field)
+			parts := strings.Fields(rule)
+			if len(parts) > 0 {
+				if lineNum, err := strconv.Atoi(parts[0]); err == nil {
+					linesToRemove = append(linesToRemove, lineNum)
+				}
+			}
+		}
+	}
+	
+	// Remove rules in reverse order to maintain line numbers
+	removedCount := 0
+	for i := len(linesToRemove) - 1; i >= 0; i-- {
+		lineNum := linesToRemove[i]
+		err := removeIPTablesRuleByLineNumber(lineNum)
+		if err != nil {
+			logger.Warn("Failed to remove rule at line %d: %v", lineNum, err)
+		} else {
+			removedCount++
+		}
+	}
+	
+	logger.Info("Cleared %d Gatekeeper rules from iptables", removedCount)
+	return nil
+}
+
+// getCurrentIPTablesRulesForCleanup gets current iptables rules in INPUT chain for cleanup purposes
+func getCurrentIPTablesRulesForCleanup() ([]string, error) {
+	cmd := exec.Command("sudo", "iptables", "-L", "INPUT", "-n", "--line-numbers")
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	
+	err := cmd.Run()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get iptables rules: %v", err)
+	}
+	
+	lines := strings.Split(stdout.String(), "\n")
+	var rules []string
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "Chain") || strings.HasPrefix(line, "target") {
+			continue
+		}
+		rules = append(rules, line)
+	}
+	
+	return rules, nil
 }

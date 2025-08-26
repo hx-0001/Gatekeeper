@@ -1004,3 +1004,45 @@ func StartExpirationCleanupService() {
 	}()
 	logger.Info("Expiration cleanup service started (checking every %d minutes)", cfg.Expiration.CleanupInterval)
 }
+
+// LoadApprovedApplicationRulesAtStartup restores all approved application firewall rules at startup
+func LoadApprovedApplicationRulesAtStartup() error {
+	logger.Info("Starting approved application rules restoration...")
+	
+	approvedApps, err := database.GetApprovedApplications()
+	if err != nil {
+		return fmt.Errorf("failed to get approved applications: %v", err)
+	}
+
+	if len(approvedApps) == 0 {
+		logger.Info("No approved applications found to restore")
+		return nil
+	}
+
+	successCount := 0
+	failedCount := 0
+	
+	for _, app := range approvedApps {
+		logger.Info("Restoring firewall rule: application_id=%d, ip=%s, port=%d", app.ID, app.IPAddress, app.Port)
+		
+		// Apply the iptables rule using high priority (approved rules)
+		err := executeIPTablesCommand("-A", app.IPAddress, strconv.Itoa(app.Port))
+		if err != nil {
+			logger.Warn("Failed to restore firewall rule: application_id=%d, ip=%s, port=%d, error=%v", app.ID, app.IPAddress, app.Port, err)
+			failedCount++
+			continue
+		}
+		
+		logger.Info("Successfully restored firewall rule: application_id=%d, ip=%s, port=%d", app.ID, app.IPAddress, app.Port)
+		successCount++
+	}
+	
+	if failedCount > 0 {
+		logger.Warn("Application rules restoration completed: %d restored, %d failed out of %d total", successCount, failedCount, len(approvedApps))
+		return fmt.Errorf("failed to restore %d out of %d approved application rules", failedCount, len(approvedApps))
+	} else {
+		logger.Info("Application rules restoration completed successfully: %d rules restored", successCount)
+	}
+	
+	return nil
+}

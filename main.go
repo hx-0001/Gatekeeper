@@ -47,6 +47,11 @@ func main() {
 		logger.Warn("Failed to load default rules: %v", err)
 	}
 
+	// Restore approved application firewall rules at startup
+	if err := handlers.LoadApprovedApplicationRulesAtStartup(); err != nil {
+		logger.Warn("Failed to restore approved application rules: %v", err)
+	}
+
 	// Setup routes
 	http.HandleFunc("/login", handlers.LoginHandler)
 	http.HandleFunc("/register", handlers.RegisterHandler)

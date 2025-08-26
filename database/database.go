@@ -342,6 +342,40 @@ func GetAllDefaultRules() ([]models.DefaultRule, error) {
 	return rules, nil
 }
 
+// GetApprovedApplications retrieves all approved applications for rule restoration
+func GetApprovedApplications() ([]models.Application, error) {
+	logger.Info("Retrieving approved applications for rule restoration")
+	query := `
+		SELECT id, user_id, ip_address, port, reason, status, 
+			COALESCE(rejection_reason, '') as rejection_reason,
+			expires_at, created_at, updated_at
+		FROM applications 
+		WHERE status = 'approved' AND (expires_at IS NULL OR expires_at > ?)
+		ORDER BY created_at ASC`
+	
+	rows, err := DB.Query(query, time.Now())
+	if err != nil {
+		logger.Error("Failed to query approved applications: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var applications []models.Application
+	for rows.Next() {
+		var app models.Application
+		err := rows.Scan(&app.ID, &app.UserID, &app.IPAddress, &app.Port, &app.Reason, &app.Status, 
+			&app.RejectionReason, &app.ExpiresAt, &app.CreatedAt, &app.UpdatedAt)
+		if err != nil {
+			logger.Error("Failed to scan approved application row: %v", err)
+			return nil, err
+		}
+		applications = append(applications, app)
+	}
+
+	logger.Info("Found %d approved applications for rule restoration", len(applications))
+	return applications, nil
+}
+
 // GetEnabledDefaultRules retrieves only enabled default rules
 func GetEnabledDefaultRules() ([]models.DefaultRule, error) {
 	query := `
